@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Co-Pilot</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap');
+
+  :root {
+    --ink:    #151515;
+    --paper:  #f2ede6;
+    --faint:  #e5e0d8;
+    --mid:    #bfb9b0;
+    --red:    #b83232;
+    --amber:  #c47a0a;
+    --blue:   #1b3a5c;
+    --green:  #1e5438;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    border-bottom: 2px solid var(--ink);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .logo em { font-style: italic; color: var(--blue); }
+
+  .user-info { font-size: 11px; color: #888; text-align: right; }
+  .user-info b { color: var(--ink); display: block; font-size: 12px; }
+
+  .nav {
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    flex-shrink: 0;
+  }
+
+  .nav-tab {
+    padding: 9px 18px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: #888;
+    border-right: 1px solid var(--mid);
+  }
+
+  .nav-tab:hover { background: var(--faint); color: var(--ink); }
+
+  .nav-tab.active {
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 600;
+  }
+
+  .nav-tab .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 5px;
+    font-size: 9px;
+    background: var(--red);
+    color: white;
+    vertical-align: middle;
+  }
+
+  .nav-tab.active .badge { background: var(--paper); color: var(--ink); }
+
+  .page { display: none; flex: 1; overflow-y: auto; padding: 32px 40px; }
+  .page.active { display: block; }
+
+  .page-title {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .page-sub { font-size: 11px; color: #888; margin-bottom: 28px; }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 12px;
+    margin-top: 28px;
+  }
+
+  .section-label:first-of-type { margin-top: 0; }
+
+  .todo-item {
+    border: 1px solid var(--mid);
+    border-left: 3px solid var(--mid);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .todo-item.c { border-left-color: var(--red); }
+  .todo-item.u { border-left-color: var(--amber); }
+  .todo-item.n { border-left-color: var(--blue); }
+  .todo-item.l { border-left-color: var(--mid); }
+  .todo-item:hover { background: var(--faint); }
+
+  .todo-text { font-size: 12px; font-weight: 500; margin-bottom: 3px; }
+  .todo-meta { font-size: 11px; color: #999; }
+  .todo-right { text-align: right; flex-shrink: 0; }
+
+  .tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+  }
+
+  .tag.red   { color: var(--red); }
+  .tag.amber { color: var(--amber); }
+  .tag.blue  { color: var(--blue); }
+  .tag.grey  { color: #aaa; }
+  .tag.green { color: var(--green); }
+
+  .overdue { font-size: 10px; color: var(--red); margin-top: 4px; }
+  .due     { font-size: 10px; color: var(--amber); margin-top: 4px; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    margin-bottom: 28px;
+  }
+
+  .stat-box { background: var(--paper); padding: 20px 20px 16px; }
+
+  .stat-num {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 36px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-num.red   { color: var(--red); }
+  .stat-num.green { color: var(--green); }
+  .stat-num.blue  { color: var(--blue); }
+
+  .stat-lbl { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #888; }
+
+  .bar-wrap { margin-bottom: 28px; }
+  .bar { height: 3px; background: var(--faint); margin-bottom: 6px; }
+  .bar-fill { height: 100%; background: var(--blue); }
+  .bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: #888; }
+
+  .pattern-list { border-top: 1px solid var(--faint); }
+
+  .pattern {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--faint);
+    font-size: 11px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .pdot { width: 6px; height: 6px; margin-top: 5px; flex-shrink: 0; }
+
+  .chat-wrap {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 45px - 42px - 120px);
+  }
+
+  .chat-log { flex: 1; overflow-y: auto; margin-bottom: 16px; }
+
+  .msg { margin-bottom: 20px; }
+
+  .msg-from {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 6px;
+  }
+
+  .bubble { padding: 12px 16px; font-size: 12px; line-height: 1.7; max-width: 82%; }
+  .bubble.you { background: var(--ink); color: var(--paper); margin-left: auto; }
+  .bubble.ai  { background: var(--faint); border: 1px solid var(--mid); }
+
+  .sources { margin-top: 8px; font-size: 10px; color: #aaa; max-width: 82%; }
+
+  .src-chip {
+    display: inline-block;
+    border: 1px solid var(--mid);
+    padding: 2px 7px;
+    margin: 2px 3px 2px 0;
+    font-size: 10px;
+    color: #888;
+  }
+
+  .chat-input-row {
+    display: flex;
+    border-top: 2px solid var(--ink);
+    padding-top: 14px;
+  }
+
+  .chat-input {
+    flex: 1;
+    background: var(--faint);
+    border: 1px solid var(--mid);
+    border-right: none;
+    padding: 10px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    outline: none;
+  }
+
+  .chat-input:focus { border-color: var(--ink); }
+
+  .chat-send {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 10px 18px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .chat-send:hover { background: var(--blue); }
+
+  .suggestion {
+    border: 1px solid var(--mid);
+    border-left: 3px solid var(--mid);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+
+  .suggestion.red   { border-left-color: var(--red); }
+  .suggestion.amber { border-left-color: var(--amber); }
+  .suggestion.blue  { border-left-color: var(--blue); }
+
+  .sug-title { font-weight: 600; font-size: 12px; margin-bottom: 6px; }
+  .sug-body  { font-size: 11px; color: #555; line-height: 1.6; }
+
+  .gen-btn {
+    display: inline-block;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 10px 20px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-bottom: 24px;
+  }
+
+  .gen-btn:hover { background: var(--blue); }
+
+  .digest-date {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .d-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--faint);
+    font-size: 12px;
+    gap: 20px;
+  }
+
+  .d-row:last-child { border-bottom: none; }
+  .d-key { color: #888; }
+  .d-val { font-weight: 600; text-align: right; }
+  .d-val.red   { color: var(--red); }
+  .d-val.green { color: var(--green); }
+  .d-val.amber { color: var(--amber); }
+
+  .digest-toggle {
+    display: flex;
+    margin-bottom: 24px;
+    border: 1px solid var(--ink);
+    width: fit-content;
+  }
+
+  .d-toggle-btn {
+    padding: 7px 18px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: #888;
+    background: none;
+    border: none;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .d-toggle-btn.active { background: var(--ink); color: var(--paper); }
+
+  .upload-zone {
+    border: 2px dashed var(--mid);
+    padding: 36px;
+    text-align: center;
+    margin-bottom: 24px;
+    cursor: pointer;
+  }
+
+  .upload-zone:hover { border-color: var(--ink); background: var(--faint); }
+
+  .upload-icon { font-size: 28px; margin-bottom: 10px; }
+  .upload-label { font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+  .upload-sub { font-size: 11px; color: #888; }
+
+  .upload-type-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  .upload-type {
+    border: 1px solid var(--mid);
+    padding: 14px;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .upload-type:hover { border-color: var(--ink); background: var(--faint); }
+  .upload-type.selected { border-color: var(--ink); border-width: 2px; }
+
+  .upload-type-icon { font-size: 18px; margin-bottom: 6px; }
+  .upload-type-name { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+  .upload-type-desc { font-size: 10px; color: #888; }
+
+  .field-row { margin-bottom: 14px; }
+
+  .field-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 6px;
+  }
+
+  .field-input {
+    width: 100%;
+    background: var(--faint);
+    border: 1px solid var(--mid);
+    padding: 9px 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    outline: none;
+  }
+
+  .field-input:focus { border-color: var(--ink); }
+  select.field-input { cursor: pointer; }
+
+  .submit-btn {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 11px 24px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  .submit-btn:hover { background: var(--blue); }
+
+  .uploaded-list { margin-top: 28px; }
+
+  .uploaded-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--faint);
+    font-size: 11px;
+  }
+
+  .uploaded-item:last-child { border-bottom: none; }
+  .uploaded-name { font-weight: 500; margin-bottom: 2px; }
+  .uploaded-meta { font-size: 10px; color: #aaa; }
+
+  .status-chip {
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 2px 7px;
+    text-transform: uppercase;
+    font-weight: 600;
+    border: 1px solid currentColor;
+    flex-shrink: 0;
+  }
+
+  .status-chip.done { color: var(--green); }
+  .status-chip.proc { color: var(--amber); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .full-col { grid-column: 1 / -1; }
+
+  textarea.field-input { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+  .issue-list { margin-top: 28px; }
+
+  .issue-item {
+    border: 1px solid var(--mid);
+    border-left: 3px solid var(--mid);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .issue-item.open   { border-left-color: var(--red); }
+  .issue-item.prog   { border-left-color: var(--amber); }
+  .issue-item.closed { border-left-color: var(--green); }
+
+  .issue-text { font-size: 12px; font-weight: 500; margin-bottom: 3px; }
+  .issue-meta { font-size: 11px; color: #999; }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--mid); }
+  /* ── HOMEPAGE ── */
+  #page-home {
+    padding: 0;
+    display: none;
+    flex-direction: column;
+  }
+
+  #page-home.active { display: flex; }
+
+  .home-hero {
+    padding: 36px 40px 28px;
+    border-bottom: 1px solid var(--mid);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 40px;
+    align-items: end;
+  }
+
+  .home-greeting {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 8px;
+  }
+
+  .home-name {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.8px;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+
+  .home-name em { font-style: italic; color: var(--blue); }
+
+  .home-meta {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 20px;
+  }
+
+  .home-quick-stats {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--mid);
+    width: fit-content;
+  }
+
+  .hqs {
+    padding: 10px 18px;
+    border-right: 1px solid var(--mid);
+    text-align: center;
+    min-width: 80px;
+  }
+
+  .hqs:last-child { border-right: none; }
+
+  .hqs-num {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .hqs-num.red   { color: var(--red); }
+  .hqs-num.amber { color: var(--amber); }
+  .hqs-num.blue  { color: var(--blue); }
+  .hqs-num.green { color: var(--green); }
+
+  .hqs-lbl { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #aaa; }
+
+  .home-date-block { text-align: right; }
+
+  .home-big-date {
+    font-family: 'IBM Plex Serif', serif;
+    font-size: 42px;
+    font-weight: 600;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .home-day {
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: right;
+  }
+
+  /* home grid */
+  .home-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 0;
+    flex: 1;
+    border-top: none;
+  }
+
+  .home-card {
+    border-right: 1px solid var(--mid);
+    border-bottom: 1px solid var(--mid);
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .home-card:hover { background: var(--faint); }
+  .home-card:nth-child(3n) { border-right: none; }
+
+  .home-card-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #aaa;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .home-card-label span { font-size: 14px; }
+
+  .home-urgent-item {
+    padding: 7px 0;
+    border-bottom: 1px solid var(--faint);
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .home-urgent-item:last-child { border-bottom: none; }
+
+  .hui-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+
+  .hui-tag {
+    font-size: 9px;
+    color: var(--red);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .hui-tag.amber { color: var(--amber); }
+
+  .home-pattern {
+    padding: 7px 0;
+    border-bottom: 1px solid var(--faint);
+    font-size: 11px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .home-pattern:last-child { border-bottom: none; }
+
+  .home-digest-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--faint);
+    font-size: 11px;
+  }
+
+  .home-digest-row:last-child { border-bottom: none; }
+  .hdr-key { color: #888; }
+  .hdr-val { font-weight: 600; }
+  .hdr-val.red   { color: var(--red); }
+  .hdr-val.green { color: var(--green); }
+  .hdr-val.amber { color: var(--amber); }
+
+  .home-chat-prompt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid var(--mid);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    font-size: 11px;
+    color: #888;
+  }
+
+  .home-chat-prompt:hover { border-color: var(--ink); color: var(--ink); background: var(--faint); }
+
+  .home-chat-prompt-arrow { margin-left: auto; color: #ccc; }
+
+  .home-offline-bar {
+    border-top: 1px solid var(--mid);
+    padding: 8px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 10px;
+    color: #aaa;
+    background: var(--faint);
+    flex-shrink: 0;
+  }
+
+  .offline-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--green);
+    border-radius: 0;
+    display: inline-block;
+    margin-right: 5px;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">Co<em>Pilot</em></div>
+  <div class="user-info">
+    <b>Shri Rajendra Kumar Verma</b>
+    MLA · Ward 42, South Delhi · Fully offline
+  </div>
+</div>
+
+<div class="nav">
+  <div class="nav-tab active" onclick="go(this,'home')">Home</div>
+  <div class="nav-tab" onclick="go(this,'todo')">To-Do</div>
+  <div class="nav-tab" onclick="go(this,'commitments')">Commitments</div>
+  <div class="nav-tab" onclick="go(this,'chat')">Chat</div>
+  <div class="nav-tab" onclick="go(this,'suggestions')">Suggestions</div>
+  <div class="nav-tab" onclick="go(this,'digest')">Digest</div>
+  <div class="nav-tab" onclick="go(this,'upload')">Upload Meeting</div>
+  <div class="nav-tab" onclick="go(this,'issues')">Log Issue</div>
+  <div class="nav-tab" onclick="go(this,'profile')">Profile</div>
+</div>
+
+<!-- HOME -->
+<div class="page active" id="page-home">
+
+  <div class="home-hero">
+    <div>
+      <div class="home-greeting">Good morning</div>
+      <div class="home-name">Shri Rajendra Kumar<br><em>Verma</em></div>
+      <div class="home-meta">MLA · Ward 42, South Delhi &nbsp;·&nbsp; Term since 2024</div>
+      <div class="home-quick-stats">
+        <div class="hqs">
+          <div class="hqs-num red">2</div>
+          <div class="hqs-lbl">Critical</div>
+        </div>
+        <div class="hqs">
+          <div class="hqs-num amber">4</div>
+          <div class="hqs-lbl">Overdue</div>
+        </div>
+        <div class="hqs">
+          <div class="hqs-num blue">14</div>
+          <div class="hqs-lbl">Open items</div>
+        </div>
+        <div class="hqs">
+          <div class="hqs-num green">61%</div>
+          <div class="hqs-lbl">On-time rate</div>
+        </div>
+      </div>
+    </div>
+    <div class="home-date-block">
+      <div class="home-big-date">26</div>
+      <div class="home-day">Thursday · February 2026</div>
+    </div>
+  </div>
+
+  <div class="home-grid">
+
+    <!-- URGENT TODO -->
+    <div class="home-card" onclick="goPage('todo')">
+      <div class="home-card-label">Urgent to-do <span>→</span></div>
+      <div class="home-urgent-item">
+        <span class="hui-text">PWD follow-up — drainage Ward 42</span>
+        <span class="hui-tag">W8 · 12d overdue</span>
+      </div>
+      <div class="home-urgent-item">
+        <span class="hui-text">PM Awas query — Ward 8</span>
+        <span class="hui-tag">W6 · 8d overdue</span>
+      </div>
+      <div class="home-urgent-item">
+        <span class="hui-text">Street light — Ward 17 Sector 4</span>
+        <span class="hui-tag amber">W3 · urgent</span>
+      </div>
+      <div class="home-urgent-item">
+        <span class="hui-text">Road repair update — Ward 17</span>
+        <span class="hui-tag amber">W3 · 4d left</span>
+      </div>
+    </div>
+
+    <!-- QUICK CHAT -->
+    <div class="home-card" onclick="goPage('chat')">
+      <div class="home-card-label">Ask Co-Pilot <span>→</span></div>
+      <div class="home-chat-prompt">
+        <span>Am I ready for today's meetings?</span>
+        <span class="home-chat-prompt-arrow">↗</span>
+      </div>
+      <div class="home-chat-prompt">
+        <span>What are the top issues in Ward 42?</span>
+        <span class="home-chat-prompt-arrow">↗</span>
+      </div>
+      <div class="home-chat-prompt">
+        <span>Draft a response to the drainage complaints</span>
+        <span class="home-chat-prompt-arrow">↗</span>
+      </div>
+      <div class="home-chat-prompt">
+        <span>What is my track record with PWD?</span>
+        <span class="home-chat-prompt-arrow">↗</span>
+      </div>
+    </div>
+
+    <!-- TODAY'S DIGEST -->
+    <div class="home-card" onclick="goPage('digest')">
+      <div class="home-card-label">Today at a glance <span>→</span></div>
+      <div class="home-digest-row">
+        <span class="hdr-key">New complaints</span>
+        <span class="hdr-val">4</span>
+      </div>
+      <div class="home-digest-row">
+        <span class="hdr-key">Weight increases</span>
+        <span class="hdr-val red">2 clusters</span>
+      </div>
+      <div class="home-digest-row">
+        <span class="hdr-key">Resolved today</span>
+        <span class="hdr-val green">1 — Encroachment W3</span>
+      </div>
+      <div class="home-digest-row">
+        <span class="hdr-key">New commitments</span>
+        <span class="hdr-val">3</span>
+      </div>
+      <div class="home-digest-row">
+        <span class="hdr-key">Became overdue</span>
+        <span class="hdr-val red">1 — Drainage W42</span>
+      </div>
+      <div class="home-digest-row">
+        <span class="hdr-key">Oldest unresolved</span>
+        <span class="hdr-val red">47 days</span>
+      </div>
+    </div>
+
+    <!-- PATTERNS -->
+    <div class="home-card" onclick="goPage('commitments')">
+      <div class="home-card-label">Patterns recognized <span>→</span></div>
+      <div class="home-pattern">
+        <div class="pdot" style="background:var(--red);margin-top:5px;flex-shrink:0"></div>
+        <div>PWD commitments average <b>28 days</b> — longest of any department</div>
+      </div>
+      <div class="home-pattern">
+        <div class="pdot" style="background:var(--amber);margin-top:5px;flex-shrink:0"></div>
+        <div>Ward 42 has <b>40% of all commitments</b> — disproportionate</div>
+      </div>
+      <div class="home-pattern">
+        <div class="pdot" style="background:var(--green);margin-top:5px;flex-shrink:0"></div>
+        <div>On-time rate up from <b>45% → 61%</b> over 3 months</div>
+      </div>
+    </div>
+
+    <!-- SUGGESTIONS -->
+    <div class="home-card" onclick="goPage('suggestions')">
+      <div class="home-card-label">Suggestions waiting <span>→</span></div>
+      <div class="home-pattern">
+        <div class="pdot" style="background:var(--red);margin-top:5px;flex-shrink:0"></div>
+        <div>Drainage W42 — escalate to Commissioner Singh directly today</div>
+      </div>
+      <div class="home-pattern">
+        <div class="pdot" style="background:var(--amber);margin-top:5px;flex-shrink:0"></div>
+        <div>Monsoon prep window closes in 2 weeks — PWD inspection needed</div>
+      </div>
+      <div class="home-pattern">
+        <div class="pdot" style="background:var(--blue);margin-top:5px;flex-shrink:0"></div>
+        <div>340 Ward 8 residents eligible for PM Awas — camp visit next week</div>
+      </div>
+      <div style="margin-top:10px">
+        <button class="gen-btn" style="margin-bottom:0;font-size:9px;padding:7px 14px" onclick="event.stopPropagation();goPage('suggestions');showSug()">Generate now</button>
+      </div>
+    </div>
+
+    <!-- COMPLAINT CLUSTERS -->
+    <div class="home-card" onclick="goPage('issues')">
+      <div class="home-card-label">Complaint clusters <span>→</span></div>
+      <div class="home-urgent-item">
+        <span class="hui-text">Drainage overflow — Ward 42</span>
+        <span class="hui-tag">W8 · Critical</span>
+      </div>
+      <div class="home-urgent-item">
+        <span class="hui-text">Street light — Ward 17 Sector 4</span>
+        <span class="hui-tag amber">W3 · Urgent</span>
+      </div>
+      <div class="home-urgent-item">
+        <span class="hui-text">Water supply — Ward 8</span>
+        <span class="hui-tag amber">W2 · New</span>
+      </div>
+      <div class="home-urgent-item">
+        <span class="hui-text">Encroachment — Ward 3</span>
+        <span class="hui-tag" style="color:var(--green)">Resolved</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="home-offline-bar">
+    <span><span class="offline-dot"></span>All systems local · zero network</span>
+    <span>DB1 ✓ &nbsp; DB2 · 847 facts &nbsp; DB3 · 14 open &nbsp; DB4 · 234 total</span>
+    <span style="margin-left:auto">Phi-3 Mini running · last sync 09:41</span>
+  </div>
+
+</div>
+
+<div class="page" id="page-todo">
+  <div class="page-title">To-Do</div>
+  <div class="page-sub">14 pending · 2 critical · ranked by weight</div>
+
+  <div class="section-label">Critical</div>
+
+  <div class="todo-item c">
+    <div>
+      <div class="todo-text">Follow up with PWD — drainage overflow Ward 42</div>
+      <div class="todo-meta">Commitment · Jan 15 · Ward Councillors meeting</div>
+    </div>
+    <div class="todo-right">
+      <span class="tag red">W8 · Critical</span>
+      <div class="overdue">▲ 12 days overdue</div>
+    </div>
+  </div>
+
+  <div class="todo-item c">
+    <div>
+      <div class="todo-text">Answer PM Awas Yojana eligibility query — Ward 8</div>
+      <div class="todo-meta">Question · Feb 18 · Janata Darbar</div>
+    </div>
+    <div class="todo-right">
+      <span class="tag red">W6 · Critical</span>
+      <div class="overdue">▲ 8 days overdue</div>
+    </div>
+  </div>
+
+  <div class="section-label">Urgent</div>
+
+  <div class="todo-item u">
+    <div>
+      <div class="todo-text">Street light outage — Ward 17 Sector 4</div>
+      <div class="todo-meta">Complaint cluster · 3 complaints · oldest Feb 20</div>
+    </div>
+    <div class="todo-right">
+      <span class="tag amber">W3 · Urgent</span>
+      <div class="due">6 days old</div>
+    </div>
+  </div>
+
+  <div class="todo-item u">
+    <div>
+      <div class="todo-text">Road repair status update — Ward 17 main road</div>
+      <div class="todo-meta">Commitment · Feb 10 · PWD meeting</div>
+    </div>
+    <div class="todo-right">
+      <span class="tag amber">W3 · Urgent</span>
+      <div class="due">4 days left</div>
+    </div>
+  </div>
+
+  <div class="section-label">Normal</div>
+
+  <div class="todo-item n">
+    <div>
+      <div class="todo-text">Call Commissioner Singh — road repair escalation</div>
+      <div class="todo-meta">Action item · Feb 22 · Meeting with DM</div>
+    </div>
+    <div class="todo-right"><span class="tag blue">W2 · Normal</span></div>
+  </div>
+
+  <div class="todo-item n">
+    <div>
+      <div class="todo-text">Water supply complaint — Ward 8, 2 complaints</div>
+      <div class="todo-meta">Complaint cluster · Feb 24 · Elderly citizen flagged</div>
+    </div>
+    <div class="todo-right"><span class="tag blue">W2 · Normal</span></div>
+  </div>
+
+  <div class="section-label">Low</div>
+
+  <div class="todo-item l">
+    <div>
+      <div class="todo-text">Review scheme penetration — Ward 3 and Ward 11</div>
+      <div class="todo-meta">Self-assigned · Feb 25</div>
+    </div>
+    <div class="todo-right"><span class="tag grey">W1 · Low</span></div>
+  </div>
+</div>
+
+<!-- COMMITMENTS -->
+<div class="page" id="page-commitments">
+  <div class="page-title">Commitment Tracker</div>
+  <div class="page-sub">Personal accountability mirror · this month</div>
+
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-num blue">23</div>
+      <div class="stat-lbl">Made this month</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num green">14</div>
+      <div class="stat-lbl">Resolved on time</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num red">4</div>
+      <div class="stat-lbl">Overdue now</div>
+    </div>
+  </div>
+
+  <div class="bar-wrap">
+    <div class="bar"><div class="bar-fill" style="width:61%"></div></div>
+    <div class="bar-labels"><span>On-time rate: 61%</span><span>↑ from 45% last month</span></div>
+  </div>
+
+  <div class="section-label">Patterns recognized</div>
+
+  <div class="pattern-list">
+    <div class="pattern">
+      <div class="pdot" style="background:var(--red)"></div>
+      <div>PWD commitments average <b>28 days</b> to resolve — longest of any department</div>
+    </div>
+    <div class="pattern">
+      <div class="pdot" style="background:var(--amber)"></div>
+      <div>Ward 42 receives <b>40% of all commitments</b> — disproportionate to population</div>
+    </div>
+    <div class="pattern">
+      <div class="pdot" style="background:var(--amber)"></div>
+      <div>3 commitments extended more than twice — all involve drainage infrastructure</div>
+    </div>
+    <div class="pattern">
+      <div class="pdot" style="background:var(--green)"></div>
+      <div>On-time rate improved from 45% to 61% over 3 months</div>
+    </div>
+    <div class="pattern">
+      <div class="pdot" style="background:var(--blue)"></div>
+      <div>Commissioner Singh: 2 of 2 commitments delivered — most reliable contact</div>
+    </div>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div class="page" id="page-chat">
+  <div class="page-title">Chat</div>
+  <div class="page-sub">Ask anything · all four databases queried locally · zero network</div>
+
+  <div class="chat-wrap">
+    <div class="chat-log">
+      <div class="msg">
+        <div class="msg-from">You · 09:12</div>
+        <div class="bubble you">Am I ready for tomorrow's Ward 42 meeting?</div>
+      </div>
+      <div class="msg">
+        <div class="msg-from">Co-Pilot · 09:12 · DB1 + DB2 + DB3 queried</div>
+        <div class="bubble ai">
+          Ward 42 briefing for tomorrow:<br><br>
+          <b>Urgent —</b> Drainage commitment from Jan 15 is 12 days overdue. 7 citizens have filed complaints, oldest from Jan 10. Last time Commissioner Singh resolved a similar issue in 18 days when contacted directly (Aug 2024). Recommend leading with this and committing to a specific date.<br><br>
+          <b>Watch —</b> Road repair deadline is 4 days away. 2 complaints linked. PWD assigned — check status before meeting.<br><br>
+          <b>Context —</b> Ward 42 drainage coverage is only 60%. Flooding complaints appear every February-March without fail. Third consecutive year. Seasonal pattern, not a one-off.<br><br>
+          <b>Opportunity —</b> 340 residents estimated eligible for PM Awas Yojana who have not applied yet.
+        </div>
+        <div class="sources">
+          Sources:
+          <span class="src-chip">DB1 — Ward 42 demographics</span>
+          <span class="src-chip">DB2 — Drainage history Aug 2024</span>
+          <span class="src-chip">DB3 — 2 open commitments</span>
+          <span class="src-chip">DB2 — Seasonal pattern</span>
+        </div>
+      </div>
+      <div class="msg">
+        <div class="msg-from">You · 09:18</div>
+        <div class="bubble you">What is my track record with PWD?</div>
+      </div>
+      <div class="msg">
+        <div class="msg-from">Co-Pilot · 09:18 · DB2 + DB3 queried</div>
+        <div class="bubble ai">
+          PWD — 6 commitments total.<br><br>
+          Resolved on time: 2 of 6 (33%)<br>
+          Average resolution: 28 days<br>
+          Extended more than once: 3 commitments<br><br>
+          Pattern: The delay is not at senior level. Commissioner Singh is 2 of 2. Routing through department has not worked. Direct escalation to Singh has worked twice. Recommend same approach now.
+        </div>
+        <div class="sources">
+          Sources:
+          <span class="src-chip">DB2 — PWD commitment history</span>
+          <span class="src-chip">DB3 — Open PWD items</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-input" type="text" placeholder="Ask about your constituency, commitments, patterns, or draft a response...">
+      <button class="chat-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUGGESTIONS -->
+<div class="page" id="page-suggestions">
+  <div class="page-title">Suggestions</div>
+  <div class="page-sub">On demand only · AI thinks across all four databases when you ask</div>
+
+  <button class="gen-btn" onclick="showSug()">Generate suggestions now</button>
+
+  <div id="sug-results" style="display:none">
+    <div class="suggestion red">
+      <div class="sug-title">01 — Drainage Ward 42 — escalate today</div>
+      <div class="sug-body">12 days overdue. Commissioner Singh resolved a similar issue in 18 days when contacted directly (Aug 2024). Routing through department averages 28 days. Recommend a direct call today.</div>
+    </div>
+    <div class="suggestion amber">
+      <div class="sug-title">02 — Monsoon prep window closing</div>
+      <div class="sug-body">Monsoon is 8 weeks away. Ward 42 and Ward 17 flooded last 3 years. Pre-monsoon drain cleaning done in 2023 — no flooding. Skipped in 2024 — worse flooding. PWD inspection window closes in 2 weeks.</div>
+    </div>
+    <div class="suggestion blue">
+      <div class="sug-title">03 — Scheme opportunity — Ward 8 visit next week</div>
+      <div class="sug-body">340 residents in Ward 8 are estimated eligible for PM Awas Yojana but have not applied. Camp office visit is already scheduled next week — ideal timing for an awareness drive.</div>
+    </div>
+    <div class="suggestion" style="border-left-color:var(--mid)">
+      <div class="sug-title">04 — Untracked commitments — Jan 20 meeting</div>
+      <div class="sug-body">4 commitments were logged from the Jan 20 Ward Councillors meeting. 2 have no update in the system. Review before next interaction with this group.</div>
+    </div>
+  </div>
+</div>
+
+<!-- DIGEST -->
+<div class="page" id="page-digest">
+  <div class="page-title">Digest</div>
+  <div class="page-sub">Reflection tool · not for action</div>
+
+  <div class="digest-toggle">
+    <button class="d-toggle-btn active" onclick="toggleDigest(this,'daily')">Daily</button>
+    <button class="d-toggle-btn" onclick="toggleDigest(this,'weekly')">Weekly</button>
+  </div>
+
+  <div id="digest-daily">
+    <div class="digest-date">Thursday, 26 February 2026</div>
+    <div class="d-row"><span class="d-key">New complaints received</span><span class="d-val">4</span></div>
+    <div class="d-row"><span class="d-key">New issue clusters created</span><span class="d-val amber">1 — Water supply Ward 8</span></div>
+    <div class="d-row"><span class="d-key">Clusters with weight increase</span><span class="d-val red">2 — Drainage W42, Street light W17</span></div>
+    <div class="d-row"><span class="d-key">Issues resolved today</span><span class="d-val green">1 — Encroachment Ward 3</span></div>
+    <div class="d-row"><span class="d-key">New commitments logged</span><span class="d-val">3</span></div>
+    <div class="d-row"><span class="d-key">Commitments resolved</span><span class="d-val green">1</span></div>
+    <div class="d-row"><span class="d-key">Became overdue today</span><span class="d-val red">1 — Drainage W42</span></div>
+    <div class="d-row"><span class="d-key">Total open commitments</span><span class="d-val">14</span></div>
+    <div class="d-row"><span class="d-key">Oldest unresolved complaint</span><span class="d-val red">47 days — Drainage W42</span></div>
+  </div>
+
+  <div id="digest-weekly" style="display:none">
+    <div class="digest-date">Week of 20 – 26 February 2026</div>
+    <div class="d-row"><span class="d-key">Total complaints received</span><span class="d-val">17</span></div>
+    <div class="d-row"><span class="d-key">Resolved this week</span><span class="d-val green">9</span></div>
+    <div class="d-row"><span class="d-key">Resolution rate</span><span class="d-val">53%</span></div>
+    <div class="d-row"><span class="d-key">Top ward by volume</span><span class="d-val">Ward 42</span></div>
+    <div class="d-row"><span class="d-key">On-time commitment rate</span><span class="d-val green">61% — up from 45%</span></div>
+    <div class="d-row"><span class="d-key">Average days to resolve</span><span class="d-val">22 days</span></div>
+    <div class="d-row"><span class="d-key">Most overdue item</span><span class="d-val red">Drainage W42 — 12 days</span></div>
+    <div class="d-row"><span class="d-key">Pattern emerging</span><span class="d-val amber">Monsoon prep window closing</span></div>
+    <div class="d-row"><span class="d-key">Commitments due next week</span><span class="d-val">5</span></div>
+    <div class="d-row"><span class="d-key">At risk of becoming overdue</span><span class="d-val amber">2</span></div>
+  </div>
+</div>
+
+<!-- UPLOAD MEETING -->
+<div class="page" id="page-upload">
+  <div class="page-title">Upload Meeting</div>
+  <div class="page-sub">Audio recordings, transcripts, or Parliament session files · processed locally</div>
+
+  <div class="section-label">Select type</div>
+
+  <div class="upload-type-row">
+    <div class="upload-type selected" onclick="selectType(this)">
+      <div class="upload-type-icon">🎙</div>
+      <div class="upload-type-name">Audio Recording</div>
+      <div class="upload-type-desc">.wav · .mp3 · .m4a</div>
+    </div>
+    <div class="upload-type" onclick="selectType(this)">
+      <div class="upload-type-icon">📄</div>
+      <div class="upload-type-name">Transcript</div>
+      <div class="upload-type-desc">.txt · .pdf · .docx</div>
+    </div>
+    <div class="upload-type" onclick="selectType(this)">
+      <div class="upload-type-icon">🏛</div>
+      <div class="upload-type-name">Parliament Session</div>
+      <div class="upload-type-desc">Official sansad.in transcript</div>
+    </div>
+  </div>
+
+  <div class="upload-zone" onclick="this.querySelector('input').click()">
+    <div class="upload-icon">↑</div>
+    <div class="upload-label">Drop file here or click to browse</div>
+    <div class="upload-sub">System will transcribe, diarize, and extract commitments automatically</div>
+    <input type="file" style="display:none">
+  </div>
+
+  <div class="section-label">Meeting details</div>
+
+  <div class="field-row">
+    <div class="field-label">Meeting date</div>
+    <input class="field-input" type="date">
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">Meeting type</div>
+    <select class="field-input">
+      <option>Constituency office</option>
+      <option>Department / bureaucrat</option>
+      <option>Party internal</option>
+      <option>Janata Darbar</option>
+      <option>Parliament session</option>
+      <option>Other</option>
+    </select>
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">Participants (optional — helps diarization)</div>
+    <input class="field-input" type="text" placeholder="e.g. Commissioner Singh, Ward Councillor Sharma">
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">Notes (optional)</div>
+    <textarea class="field-input" placeholder="Any context you want the system to know about this meeting"></textarea>
+  </div>
+
+  <button class="submit-btn">Upload and Process</button>
+
+  <div class="section-label" style="margin-top:36px">Recently uploaded</div>
+
+  <div class="uploaded-list">
+    <div class="uploaded-item">
+      <div>
+        <div class="uploaded-name">Ward Councillors Meeting — Jan 20</div>
+        <div class="uploaded-meta">Audio · 48 min · 4 commitments extracted · 2 action items</div>
+      </div>
+      <span class="status-chip done">Processed</span>
+    </div>
+    <div class="uploaded-item">
+      <div>
+        <div class="uploaded-name">PWD Meeting — Feb 10</div>
+        <div class="uploaded-meta">Transcript · 3 commitments extracted · 1 action item</div>
+      </div>
+      <span class="status-chip done">Processed</span>
+    </div>
+    <div class="uploaded-item">
+      <div>
+        <div class="uploaded-name">Lok Sabha — Budget Session Feb 22</div>
+        <div class="uploaded-meta">Parliament transcript · Processing...</div>
+      </div>
+      <span class="status-chip proc">Processing</span>
+    </div>
+  </div>
+</div>
+
+<!-- LOG ISSUE -->
+<div class="page" id="page-issues">
+  <div class="page-title">Log Issue</div>
+  <div class="page-sub">Manual entry — physical letters, walk-ins, portal complaints</div>
+
+  <div class="section-label">Citizen details</div>
+
+  <div class="two-col">
+    <div class="field-row">
+      <div class="field-label">Citizen name</div>
+      <input class="field-input" type="text" placeholder="Full name">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Contact number</div>
+      <input class="field-input" type="text" placeholder="Mobile number">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Ward / Area</div>
+      <input class="field-input" type="text" placeholder="Ward number or locality name">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Received via</div>
+      <select class="field-input">
+        <option>Physical letter</option>
+        <option>Walk-in visit</option>
+        <option>CPGRAMS portal</option>
+        <option>State grievance portal</option>
+        <option>Other portal</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field-label">Date received</div>
+      <input class="field-input" type="date">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Staff notes (optional)</div>
+      <input class="field-input" type="text" placeholder="Any context from the interaction">
+    </div>
+    <div class="field-row full-col">
+      <div class="field-label">Issue description</div>
+      <textarea class="field-input" placeholder="Describe the complaint as closely to the citizen's own words as possible — used for clustering"></textarea>
+    </div>
+  </div>
+
+  <button class="submit-btn" onclick="fakeSubmit()">Log Issue</button>
+
+  <div id="submit-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">
+    Issue logged — system will cluster and weight automatically
+  </div>
+
+  <div class="section-label" style="margin-top:36px">Recent entries</div>
+
+  <div class="issue-list">
+    <div class="issue-item open">
+      <div>
+        <div class="issue-text">Nala overflow near plot 34 — 3 days continuous</div>
+        <div class="issue-meta">Ramesh Kumar · Ward 42 · Walk-in · Feb 24 · Linked: Drainage W42 cluster</div>
+      </div>
+      <span class="tag red">Open</span>
+    </div>
+    <div class="issue-item open">
+      <div>
+        <div class="issue-text">Street light not working outside school — safety concern</div>
+        <div class="issue-meta">Sunita Devi · Ward 17 Sector 4 · Physical letter · Feb 20 · Linked: Street light W17 cluster</div>
+      </div>
+      <span class="tag red">Open</span>
+    </div>
+    <div class="issue-item prog">
+      <div>
+        <div class="issue-text">Water supply cut for 2 days — elderly citizen alone</div>
+        <div class="issue-meta">Mohan Lal · Ward 8 · CPGRAMS · Feb 24 · New cluster created</div>
+      </div>
+      <span class="tag amber">In Progress</span>
+    </div>
+    <div class="issue-item closed">
+      <div>
+        <div class="issue-text">Illegal encroachment on community park entrance</div>
+        <div class="issue-meta">RWA Ward 3 · Walk-in · Feb 15 · Resolved Feb 26</div>
+      </div>
+      <span class="tag green">Resolved</span>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div class="page" id="page-profile">
+  <div class="page-title">Profile</div>
+  <div class="page-sub">Essential details · edit and save locally</div>
+
+  <div class="section-label">Context injection</div>
+
+  <div style="font-size:11px;color:#888;margin-bottom:16px;line-height:1.7">
+    Upload text files to inject background knowledge into DB1 — constituency reports, census data, scheme details, historical records, anything you want the system to know permanently.
+  </div>
+
+  <div class="upload-type-row" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="upload-type selected" onclick="selectCtx(this)">
+      <div class="upload-type-icon">🗺</div>
+      <div class="upload-type-name">Constituency Data</div>
+      <div class="upload-type-desc">Demographics, infrastructure, ward data</div>
+    </div>
+    <div class="upload-type" onclick="selectCtx(this)">
+      <div class="upload-type-icon">📋</div>
+      <div class="upload-type-name">Scheme Details</div>
+      <div class="upload-type-desc">Government schemes, eligibility, beneficiaries</div>
+    </div>
+    <div class="upload-type" onclick="selectCtx(this)">
+      <div class="upload-type-icon">📁</div>
+      <div class="upload-type-name">Other Context</div>
+      <div class="upload-type-desc">Historical records, reports, any reference</div>
+    </div>
+  </div>
+
+  <div class="upload-zone" onclick="this.querySelector('input').click()" style="margin-bottom:14px">
+    <div class="upload-icon">↑</div>
+    <div class="upload-label">Drop .txt file here or click to browse</div>
+    <div class="upload-sub">Plain text only · injected into DB1 as permanent context</div>
+    <input type="file" accept=".txt" style="display:none">
+  </div>
+
+  <div class="field-row">
+    <div class="field-label">Label for this context file</div>
+    <input class="field-input" type="text" placeholder="e.g. Ward 42 census 2024, PM Awas scheme details">
+  </div>
+
+  <button class="submit-btn" style="margin-bottom:24px" onclick="fakeInject()">Inject into DB1</button>
+
+  <div id="inject-confirm" style="display:none;margin-bottom:16px;font-size:11px;color:var(--green)">
+    Context injected — DB1 updated
+  </div>
+
+  <div class="section-label" style="margin-top:0">Injected context files</div>
+
+  <div class="uploaded-list">
+    <div class="uploaded-item">
+      <div>
+        <div class="uploaded-name">Ward 42 infrastructure report 2025.txt</div>
+        <div class="uploaded-meta">Constituency Data · 3.2 KB · Injected Feb 10</div>
+      </div>
+      <span class="status-chip done">Active</span>
+    </div>
+    <div class="uploaded-item">
+      <div>
+        <div class="uploaded-name">PM Awas Yojana eligibility criteria.txt</div>
+        <div class="uploaded-meta">Scheme Details · 1.1 KB · Injected Feb 14</div>
+      </div>
+      <span class="status-chip done">Active</span>
+    </div>
+    <div class="uploaded-item">
+      <div>
+        <div class="uploaded-name">Delhi census ward-level 2023.txt</div>
+        <div class="uploaded-meta">Constituency Data · 8.7 KB · Injected Feb 18</div>
+      </div>
+      <span class="status-chip done">Active</span>
+    </div>
+  </div>
+
+  <div class="section-label">MLA details</div>
+
+  <div class="two-col">
+    <div class="field-row">
+      <div class="field-label">Full name</div>
+      <input class="field-input" type="text" value="Shri Rajendra Kumar Verma">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Party</div>
+      <input class="field-input" type="text" value="Indian National Congress">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Designation</div>
+      <select class="field-input">
+        <option selected>MLA</option>
+        <option>MP (Lok Sabha)</option>
+        <option>MP (Rajya Sabha)</option>
+        <option>Municipal Councillor</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field-label">Term start year</div>
+      <input class="field-input" type="text" value="2024">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Official email</div>
+      <input class="field-input" type="text" value="rajendra.verma@mla.delhi.gov.in">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Office contact</div>
+      <input class="field-input" type="text" value="+91-11-XXXXXXXX">
+    </div>
+  </div>
+
+  <div class="section-label">Constituency details</div>
+
+  <div class="two-col">
+    <div class="field-row">
+      <div class="field-label">Constituency name</div>
+      <input class="field-input" type="text" value="Ward 42 — South Delhi">
+    </div>
+    <div class="field-row">
+      <div class="field-label">State</div>
+      <input class="field-input" type="text" value="Delhi">
+    </div>
+    <div class="field-row">
+      <div class="field-label">District</div>
+      <input class="field-input" type="text" value="South Delhi">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Total wards covered</div>
+      <input class="field-input" type="text" value="6">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Approximate population</div>
+      <input class="field-input" type="text" value="2,70,000">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Registered voters</div>
+      <input class="field-input" type="text" value="1,82,400">
+    </div>
+  </div>
+
+  <div class="section-label">Constituency office</div>
+
+  <div class="two-col">
+    <div class="field-row full-col">
+      <div class="field-label">Office address</div>
+      <input class="field-input" type="text" value="Plot 12, Sector 4, Ward 42, South Delhi — 110044">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Janata Darbar day</div>
+      <select class="field-input">
+        <option>Monday</option>
+        <option>Tuesday</option>
+        <option selected>Wednesday</option>
+        <option>Thursday</option>
+        <option>Friday</option>
+        <option>Saturday</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field-label">Janata Darbar time</div>
+      <input class="field-input" type="text" value="10:00 AM – 1:00 PM">
+    </div>
+  </div>
+
+  <div class="section-label">Staff</div>
+
+  <div class="two-col">
+    <div class="field-row">
+      <div class="field-label">PA name</div>
+      <input class="field-input" type="text" value="Suresh Yadav">
+    </div>
+    <div class="field-row">
+      <div class="field-label">PA contact</div>
+      <input class="field-input" type="text" value="+91-98XXXXXXXX">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Office manager</div>
+      <input class="field-input" type="text" value="Priya Sharma">
+    </div>
+    <div class="field-row">
+      <div class="field-label">Office manager contact</div>
+      <input class="field-input" type="text" value="+91-97XXXXXXXX">
+    </div>
+  </div>
+
+  <div class="section-label">System</div>
+
+  <div class="two-col">
+    <div class="field-row">
+      <div class="field-label">Local LLM model</div>
+      <select class="field-input">
+        <option selected>Phi-3 Mini (faster, less RAM)</option>
+        <option>Llama 3 8B (better quality)</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field-label">Complaint urgency threshold</div>
+      <input class="field-input" type="text" value="5 complaints = urgent">
+    </div>
+  </div>
+
+  <button class="submit-btn" onclick="fakeSave()">Save Changes</button>
+
+  <div id="save-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">
+    Changes saved locally
+  </div>
+</div>
+
+<script>
+  function go(tab, page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    tab.classList.add('active');
+  }
+
+  function goPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    const tab = document.querySelector('.nav-tab[onclick*=' + page + ']');
+    if (tab) tab.classList.add('active');
+  }
+
+  function showSug() {
+    document.getElementById('sug-results').style.display = 'block';
+  }
+
+  function toggleDigest(btn, type) {
+    document.querySelectorAll('.d-toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('digest-daily').style.display  = type === 'daily'  ? 'block' : 'none';
+    document.getElementById('digest-weekly').style.display = type === 'weekly' ? 'block' : 'none';
+  }
+
+  function selectType(el) {
+    document.querySelectorAll('.upload-type').forEach(t => t.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  function fakeSubmit() {
+    document.getElementById('submit-confirm').style.display = 'block';
+    setTimeout(() => document.getElementById('submit-confirm').style.display = 'none', 3000);
+  }
+
+  function fakeSave() {
+    document.getElementById('save-confirm').style.display = 'block';
+    setTimeout(() => document.getElementById('save-confirm').style.display = 'none', 3000);
+  }
+
+  function fakeInject() {
+    document.getElementById('inject-confirm').style.display = 'block';
+    setTimeout(() => document.getElementById('inject-confirm').style.display = 'none', 3000);
+  }
+
+  function selectCtx(el) {
+    el.closest('.upload-type-row').querySelectorAll('.upload-type').forEach(t => t.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+</script>
+</body>
+</html>
