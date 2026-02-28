@@ -7,6 +7,23 @@ This module is a **pure processing pipeline** — it handles the transition from
 
 ---
 
+## Evolution: From Zero-Shot to Embedding Similarity
+During development, we tested two distinct approaches for the "Intelligence Core":
+
+### 1. The Earlier Approach (Zero-Shot)
+We initially tried using heavy LLMs like `facebook/bart-large-mnli` for zero-shot classification. 
+- **The Failure**: These models were too abstract. They didn't understand the specific context of Indian governance (e.g., "PWD commissioner," "Ward 42 drainage," or "PM Awas Yojana"). They were slow (~1.6GB models, 2-3s per chunk) and often confused questions with context.
+
+### 2. The Current Approach (Embedding Similarity)
+We switched to a **Prototype-Based Embedding** system using `sentence-transformers`.
+- **The Success**: Instead of asking a model to "choose a label," we define **Intent Prototypes** (specific phrases relevant to a Leader's office). We measure the mathematical distance between incoming text and these prototypes.
+- **Benefits**: 
+    - **Speed**: 20x faster than zero-shot models (<0.1s per chunk).
+    - **Precision**: Captures governance-specific nuances perfectly.
+    - **Modularity**: You can update the "brain" by just changing the prototypes in the constructor—no retraining or heavy model swapping needed.
+
+---
+
 ## Final Architecture: Embedding Similarity
 The engine shifted from heavy zero-shot models (BART) to a **Prototype-Based Embedding Similarity** approach.
 
