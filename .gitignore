@@ -4,6 +4,7 @@
 
 # SQLite databases — local data only
 *.db
+!copilot.db
 
 # Python cache
 __pycache__/
