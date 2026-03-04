@@ -10,13 +10,13 @@ def check_db():
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
+
     print("--- Tables ---")
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = cursor.fetchall()
     for t in tables:
         print(t[0])
-        
+
     print("\n--- Profile Table Content ---")
     try:
         cursor.execute("SELECT * FROM profile")
@@ -25,7 +25,7 @@ def check_db():
             print(r)
     except Exception as e:
         print(f"Error reading profile: {e}")
-        
+
     print("\n--- Profile Table Schema ---")
     try:
         cursor.execute("PRAGMA table_info(profile)")
@@ -34,7 +34,7 @@ def check_db():
             print(c)
     except Exception as e:
         print(f"Error reading schema: {e}")
-        
+
     conn.close()
 
 if __name__ == "__main__":

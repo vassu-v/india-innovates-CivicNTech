@@ -138,6 +138,10 @@ def update_profile(data: dict):
 def get_recent_meetings():
     return commitment_engine.get_recent_meetings()
 
+@app.get("/api/complaints/recent")
+def get_recent_complaints():
+    return issue_engine.get_recent_complaints()
+
 @app.get("/api/stats")
 def get_stats():
     return commitment_engine.get_stats()

@@ -226,6 +226,18 @@ def process_complaint(complaint_data):
         "complaint_id": complaint_id
     }
 
+def get_recent_complaints(limit=5):
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT * FROM complaints
+        ORDER BY created_at DESC
+        LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    db.close()
+    return [dict(r) for r in rows]
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized.")
