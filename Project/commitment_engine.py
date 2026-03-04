@@ -266,14 +266,34 @@ def escalate():
     conn.commit()
     conn.close()
 
-def get_todo_list():
+def get_todo_list(type=None, urgency=None, ward=None):
+    """
+    Returns all pending items, split into meeting_items and issue_items.
+    Accepts optional filters: type, urgency, ward.
+    escalate() is called first to ensure fresh weights.
+    """
     escalate() # Ensure weights are fresh
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM timely_items WHERE status = 'pending' ORDER BY weight DESC, deadline ASC")
+    query = "SELECT * FROM timely_items WHERE status = 'pending'"
+    params = []
+
+    if type:
+        query += " AND type = ?"
+        params.append(type)
+    if urgency:
+        query += " AND urgency = ?"
+        params.append(urgency)
+    if ward:
+        query += " AND ward = ?"
+        params.append(ward)
+
+    query += " ORDER BY weight DESC, deadline ASC"
+
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     
     response = {
@@ -540,6 +560,22 @@ def update_profile(data):
     conn.commit()
     conn.close()
     return True
+def get_history(limit=50, offset=0):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) as c FROM timely_items WHERE status = 'completed'")
+    total = cursor.fetchone()["c"]
+    cursor.execute("SELECT * FROM timely_items WHERE status = 'completed' ORDER BY completed_at DESC LIMIT ? OFFSET ?", (limit, offset))
+    rows = cursor.fetchall()
+    conn.close()
+    items = []
+    for row in rows:
+        item = dict(row)
+        # minimal compute for history list
+        items.append(item)
+    return {"total": total, "items": items}
+
 def get_recent_meetings(limit=5):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
