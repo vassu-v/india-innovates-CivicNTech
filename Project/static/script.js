@@ -1,3 +1,9 @@
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
     async function fetchData(url, options = {}) {
       try {
         const response = await fetch(url, options);
@@ -28,7 +34,10 @@
       if (profile) {
         document.getElementById('top-user-name').innerText = profile.name;
         document.getElementById('top-user-sub').innerText = `${profile.designation} · ${profile.ward_name}`;
-        document.getElementById('hero-user-name').innerText = profile.name.split(' ').slice(0, -1).join(' '); // Name without last name roughly
+          // Show first name or the only name
+          const nameParts = (profile.name || '').split(' ');
+          const displayName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+          document.getElementById('hero-user-name').innerText = displayName;
         document.getElementById('hero-user-meta').innerText = `${profile.designation} · ${profile.ward_name} · Term since ${profile.term_start}`;
       }
 
@@ -99,10 +108,14 @@
           const label = todoContainer.querySelector('.home-card-label').outerHTML;
           let html = label;
           const allItems = [...(todo.meeting_items || []), ...(todo.issue_items || [])].sort((a, b) => b.weight - a.weight);
-          allItems.slice(0, 4).forEach(item => {
-            const overdueText = item.days_overdue > 0 ? `${item.days_overdue}d overdue` : (item.urgency || '');
-            html += `<div class="home-urgent-item"><span class="hui-text">${item.title}</span><span class="hui-tag ${item.urgency === 'critical' ? '' : 'amber'}">${item.ward || 'Gen'} · ${overdueText}</span></div>`;
-          });
+          if (allItems.length === 0) {
+            html += `<div style="color:#888;font-size:11px;padding:10px 0">No urgent items found</div>`;
+          } else {
+            allItems.slice(0, 4).forEach(item => {
+              const overdueText = item.days_overdue > 0 ? `${item.days_overdue}d overdue` : (item.urgency || '');
+            html += `<div class="home-urgent-item"><span class="hui-text">${escapeHtml(item.title)}</span><span class="hui-tag ${item.urgency === 'critical' ? '' : 'amber'}">${escapeHtml(item.ward) || 'Gen'} · ${escapeHtml(overdueText)}</span></div>`;
+            });
+          }
           todoContainer.innerHTML = html;
         }
       }
@@ -112,13 +125,17 @@
         if (container) {
           const label = container.querySelector('.home-card-label').outerHTML;
           let html = label;
-          clusters.slice(0, 4).forEach(c => {
-            html += `
-                <div class="home-urgent-item">
-                    <span class="hui-text">${c.summary}</span>
-                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
-                </div>`;
-          });
+          if (clusters.length === 0) {
+            html += `<div style="color:#888;font-size:11px;padding:10px 0">No complaint clusters found</div>`;
+          } else {
+            clusters.slice(0, 4).forEach(c => {
+              html += `
+                  <div class="home-urgent-item">
+                  <span class="hui-text">${escapeHtml(c.summary)}</span>
+                  <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${escapeHtml(c.ward)} · ${escapeHtml(c.urgency)}</span>
+                  </div>`;
+            });
+          }
           container.innerHTML = html;
         }
       }
@@ -135,14 +152,124 @@
           clusters.slice(0, 4).forEach(c => {
             html += `
                 <div class="home-urgent-item">
-                    <span class="hui-text">${c.summary}</span>
-                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
+                    <span class="hui-text">${escapeHtml(c.summary)}</span>
+                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${escapeHtml(c.ward)} · ${escapeHtml(c.urgency)}</span>
                 </div>`;
           });
           container.innerHTML = html;
         }
       }
     }
+
+async function uploadMeeting() {
+  const fileInput = document.getElementById('meeting-file-input');
+  const dateInput = document.getElementById('meeting-date');
+  const typeInput = document.getElementById('meeting-type');
+  const participantsInput = document.getElementById('meeting-participants');
+  const notesInput = document.getElementById('meeting-notes');
+  const btn = document.getElementById('meeting-upload-btn');
+  const status = document.getElementById('meeting-upload-status');
+
+  if (!fileInput.files[0]) return alert('Please select a transcript file (.txt)');
+  if (!dateInput.value) return alert('Please select meeting date');
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('meeting_date', dateInput.value);
+  formData.append('meeting_type', typeInput.value);
+  if (participantsInput.value) formData.append('participants', participantsInput.value);
+  if (notesInput.value) formData.append('notes', notesInput.value);
+
+  btn.innerText = 'Processing...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/upload/meeting', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if (res.ok) {
+      status.innerText = `Success! ${result.extracted_count} items extracted from ${result.filename}.`;
+      status.style.display = 'block';
+      setTimeout(() => status.style.display = 'none', 5000);
+      loadRecentMeetings();
+      loadTodo();
+      loadHome();
+    } else {
+      alert('Error: ' + result.detail);
+    }
+  } catch (e) {
+    alert('Failed to upload: ' + e);
+  } finally {
+    btn.innerText = 'Upload and Process';
+    btn.disabled = false;
+  }
+}
+
+async function uploadContext() {
+  const fileInput = document.getElementById('ctx-file-input');
+  const labelInput = document.getElementById('ctx-label');
+  const typeSelect = document.querySelector('#page-profile .upload-type.selected .upload-type-name');
+  const btn = document.getElementById('ctx-upload-btn');
+
+  if (!fileInput.files[0]) return alert('Please select a text file (.txt)');
+  if (!labelInput.value) return alert('Please enter a label');
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('label', labelInput.value);
+  formData.append('category', typeSelect.innerText);
+
+  btn.innerText = 'Injecting...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/upload/context', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if (res.ok) {
+      document.getElementById('inject-confirm').style.display = 'block';
+      setTimeout(() => document.getElementById('inject-confirm').style.display = 'none', 3000);
+      loadContextFiles();
+    } else {
+      alert('Error: ' + result.detail);
+    }
+  } catch (e) {
+    alert('Failed to inject: ' + e);
+  } finally {
+    btn.innerText = 'Inject into DB1';
+    btn.disabled = false;
+  }
+}
+
+async function loadContextFiles() {
+  const files = await fetchData('/api/context/files');
+  if (files) {
+    const list = document.querySelector('#page-profile .uploaded-list');
+    if (list) {
+      list.innerHTML = files.map(f => `
+        <div class="uploaded-item">
+          <div>
+            <div class="uploaded-name">${escapeHtml(f.label)} (${escapeHtml(f.filename)})</div>
+            <div class="uploaded-meta">${escapeHtml(f.category)} · ${new Date(f.created_at).toLocaleDateString()}</div>
+          </div>
+          <span class="status-chip done">Active</span>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+// Update initial load
+document.addEventListener('DOMContentLoaded', () => {
+  loadProfile();
+  loadHome();
+  loadContextFiles();
+  if (document.getElementById('page-issues')) loadRecentComplaints();
+});
 
     async function loadTodo(filter = null) {
       let url = '/api/todo';
@@ -157,9 +284,18 @@
 
         const container = document.getElementById('page-todo');
         const title = container.querySelector('.page-title').outerHTML;
-        const sub = `<div class="page-sub">${allItems.length} ${filter ? filter.urgency : ''} pending · Ranked by weight</div>`;
+    const summaryText = `${allItems.length} ${filter ? filter.urgency : ''} pending`;
+    const sub = `
+    <div class="page-sub">
+      <span id="todo-stats-summary">${summaryText}</span> · Ranked by weight
+      <button class="gen-btn" style="float:right;margin:0;padding:4px 10px;font-size:10px" onclick="liveEscalate()">Live Escalate</button>
+    </div>`;
 
         let html = title + sub;
+
+    if (allItems.length === 0) {
+      html += `<div style="color:#666;font-size:11px;padding:20px">No pending items found</div>`;
+    }
 
         const renderItems = (items, label, className) => {
           if (items.length === 0) return '';
@@ -168,12 +304,12 @@
             section += `
             <div class="todo-item ${className}">
               <div onclick="completeItem(${item.id})">
-                <div class="todo-text">${item.title}</div>
-                <div class="todo-meta">${item.type} · ${item.ward || 'General'}</div>
+                <div class="todo-text">${escapeHtml(item.title)}</div>
+                <div class="todo-meta">${escapeHtml(item.type)} · ${escapeHtml(item.ward) || 'General'}</div>
               </div>
               <div class="todo-right">
-                <span class="tag ${className === 'c' ? 'red' : className === 'u' ? 'amber' : 'blue'}">${item.urgency}</span>
-                ${item.days_overdue > 0 ? `<div class="overdue">▲ ${item.days_overdue} days overdue</div>` : ''}
+                <span class="tag ${className === 'c' ? 'red' : className === 'u' ? 'amber' : 'blue'}">${escapeHtml(item.urgency)}</span>
+                ${item.days_overdue > 0 ? `<div class="overdue">▲ ${escapeHtml(item.days_overdue)} days overdue</div>` : ''}
                 <button class="gen-btn" style="padding:2px 5px;font-size:8px;margin-top:5px" onclick="extendItem(${item.id})">Extend</button>
               </div>
             </div>`;
@@ -209,6 +345,20 @@
       }
     }
 
+async function liveEscalate() {
+  const btn = event.target;
+  const originalText = btn.innerText;
+  btn.innerText = "Escalating...";
+  btn.disabled = true;
+  const res = await fetchData('/api/escalate', { method: 'POST' });
+  if (res) {
+    btn.innerText = originalText;
+    btn.disabled = false;
+    loadTodo();
+    loadHome();
+  }
+}
+
     async function extendItem(id) {
       const date = prompt("Enter new deadline (YYYY-MM-DD):");
       if (date) {
@@ -237,8 +387,8 @@
           activeList.innerHTML = items.map(item => `
             <div class="todo-item n" style="margin-bottom:10px">
               <div>
-                <div class="todo-text">${item.title}</div>
-                <div class="todo-meta">${item.to_whom || ''} · ${item.ward || 'General'} · Deadline: ${item.deadline || 'None'}</div>
+                <div class="todo-text">${escapeHtml(item.title)}</div>
+                <div class="todo-meta">${escapeHtml(item.to_whom) || ''} · ${escapeHtml(item.ward) || 'General'} · Deadline: ${escapeHtml(item.deadline) || 'None'}</div>
               </div>
               <div class="todo-right">
                  <button class="gen-btn" style="padding:4px 8px;font-size:9px" onclick="completeItem(${item.id})">Mark Done</button>
@@ -264,8 +414,8 @@
           html += `
             <div class="issue-item closed">
                 <div>
-                    <div class="issue-text">${item.title}</div>
-                    <div class="issue-meta">${item.to_whom || ''} · ${item.ward || 'General'} · Resolved ${item.completed_at ? item.completed_at.split('T')[0] : ''}</div>
+                    <div class="issue-text">${escapeHtml(item.title)}</div>
+                    <div class="issue-meta">${escapeHtml(item.to_whom) || ''} · ${escapeHtml(item.ward) || 'General'} · Resolved ${item.completed_at ? escapeHtml(item.completed_at.split('T')[0]) : ''}</div>
                 </div>
                 <span class="tag green">Resolved</span>
             </div>`;
@@ -334,8 +484,8 @@
         content.innerHTML = items.map(item => `
           <div class="issue-item">
             <div>
-              <div class="issue-text" style="color:#fff">${item.title}</div>
-              <div class="issue-meta" style="color:#888">${item.type} · ${item.ward || 'General'} · ${item.deadline || 'No deadline'}</div>
+              <div class="issue-text" style="color:#fff">${escapeHtml(item.title)}</div>
+              <div class="issue-meta" style="color:#888">${escapeHtml(item.type)} · ${escapeHtml(item.ward) || 'General'} · ${escapeHtml(item.deadline) || 'No deadline'}</div>
             </div>
           </div>
         `).join('');
@@ -457,15 +607,33 @@
         form.querySelectorAll('input').forEach(i => i.value = '');
         form.querySelector('textarea').value = '';
         loadTodo();
+        loadRecentComplaints();
+      }
+    }
+
+    async function loadRecentComplaints() {
+      const complaints = await fetchData('/api/complaints/recent');
+      if (complaints) {
+        const list = document.getElementById('recent-complaints-list');
+        if (list) {
+          if (complaints.length === 0) {
+            list.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No recent entries</div>';
+          } else {
+            list.innerHTML = complaints.map(c => `
+              <div class="issue-item">
+                <div>
+                  <div class="issue-text">${escapeHtml(c.raw_description)}</div>
+                  <div class="issue-meta">${escapeHtml(c.citizen_name) || 'Anonymous'} · ${escapeHtml(c.ward) || 'General'} · Received ${escapeHtml(c.date_received) || 'N/A'}</div>
+                </div>
+                <span class="tag ${c.status === 'pending' ? 'blue' : 'green'}">${escapeHtml(c.status)}</span>
+              </div>
+            `).join('');
+          }
+        }
       }
     }
 
 
-    // Initial load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadProfile();
-      loadHome();
-    });
 
     function showSug() {
       document.getElementById('sug-results').style.display = 'block';
@@ -503,15 +671,19 @@
       if (meetings) {
         const list = document.querySelector('#page-upload .uploaded-list');
         if (list) {
-          list.innerHTML = meetings.map(m => `
-            <div class="uploaded-item">
-              <div>
-                <div class="uploaded-name">${m.source_id} — ${m.meeting_date || 'N/A'}</div>
-                <div class="uploaded-meta">${m.commitments} commitments extracted</div>
+          if (meetings.length === 0) {
+            list.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No recent meetings found</div>';
+          } else {
+            list.innerHTML = meetings.map(m => `
+              <div class="uploaded-item">
+                <div>
+                  <div class="uploaded-name">${m.source_id} — ${m.meeting_date || 'N/A'}</div>
+                  <div class="uploaded-meta">${m.commitments} commitments extracted</div>
+                </div>
+                <span class="status-chip done">Processed</span>
               </div>
-              <span class="status-chip done">Processed</span>
-            </div>
-          `).join('');
+            `).join('');
+          }
         }
       }
     }

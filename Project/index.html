@@ -68,22 +68,7 @@
       <!-- URGENT TODO -->
       <div class="home-card" onclick="goPage('todo')">
         <div class="home-card-label">Urgent to-do <span>→</span></div>
-        <div class="home-urgent-item">
-          <span class="hui-text">PWD follow-up — drainage Ward 42</span>
-          <span class="hui-tag">W8 · 12d overdue</span>
-        </div>
-        <div class="home-urgent-item">
-          <span class="hui-text">PM Awas query — Ward 8</span>
-          <span class="hui-tag">W6 · 8d overdue</span>
-        </div>
-        <div class="home-urgent-item">
-          <span class="hui-text">Street light — Ward 17 Sector 4</span>
-          <span class="hui-tag amber">W3 · urgent</span>
-        </div>
-        <div class="home-urgent-item">
-          <span class="hui-text">Road repair update — Ward 17</span>
-          <span class="hui-tag amber">W3 · 4d left</span>
-        </div>
+        <div style="color:#888;font-size:11px;padding:10px 0">Loading urgent items...</div>
       </div>
 
       <!-- QUICK CHAT -->
@@ -112,27 +97,23 @@
         <div class="home-card-label">Today at a glance <span>→</span></div>
         <div class="home-digest-row">
           <span class="hdr-key">New complaints</span>
-          <span class="hdr-val">4</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Weight increases</span>
-          <span class="hdr-val red">2 clusters</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Resolved today</span>
-          <span class="hdr-val green">1 — Encroachment W3</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">New commitments</span>
-          <span class="hdr-val">3</span>
+          <span class="hdr-val">-</span>
         </div>
         <div class="home-digest-row">
           <span class="hdr-key">Became overdue</span>
-          <span class="hdr-val red">1 — Drainage W42</span>
+          <span class="hdr-val red">-</span>
+        </div>
+        <div class="home-digest-row">
+          <span class="hdr-key">Resolved this week</span>
+          <span class="hdr-val green">-</span>
+        </div>
+        <div class="home-digest-row">
+          <span class="hdr-key">New commitments</span>
+          <span class="hdr-val">-</span>
         </div>
         <div class="home-digest-row">
           <span class="hdr-key">Oldest unresolved</span>
-          <span class="hdr-val red">47 days</span>
+          <span class="hdr-val">-</span>
         </div>
       </div>
 
@@ -160,22 +141,7 @@
       <!-- COMPLAINT CLUSTERS -->
       <div class="home-card" onclick="goPage('issues')">
         <div class="home-card-label">Complaint clusters <span>→</span></div>
-        <div class="home-urgent-item">
-          <span class="hui-text">Drainage overflow — Ward 42</span>
-          <span class="hui-tag">W8 · Critical</span>
-        </div>
-        <div class="home-urgent-item">
-          <span class="hui-text">Street light — Ward 17 Sector 4</span>
-          <span class="hui-tag amber">W3 · Urgent</span>
-        </div>
-        <div class="home-urgent-item">
-          <span class="hui-text">Water supply — Ward 8</span>
-          <span class="hui-tag amber">W2 · New</span>
-        </div>
-        <div class="home-urgent-item">
-          <span class="hui-text">Encroachment — Ward 3</span>
-          <span class="hui-tag" style="color:var(--green)">Resolved</span>
-        </div>
+        <div style="color:#888;font-size:11px;padding:10px 0">Loading clusters...</div>
       </div>
 
     </div>
@@ -185,83 +151,12 @@
 
   <div class="page" id="page-todo">
     <div class="page-title">To-Do</div>
-    <div class="page-sub">14 pending · 2 critical · ranked by weight</div>
-
-    <div class="section-label">Critical</div>
-
-    <div class="todo-item c">
-      <div>
-        <div class="todo-text">Follow up with PWD — drainage overflow Ward 42</div>
-        <div class="todo-meta">Commitment · Jan 15 · Ward Councillors meeting</div>
-      </div>
-      <div class="todo-right">
-        <span class="tag red">W8 · Critical</span>
-        <div class="overdue">▲ 12 days overdue</div>
-      </div>
+    <div class="page-sub">
+      <span id="todo-stats-summary">14 pending · 2 critical</span> · ranked by weight
+      <button class="gen-btn" style="float:right;margin:0;padding:4px 10px;font-size:10px" onclick="liveEscalate()">Live Escalate</button>
     </div>
 
-    <div class="todo-item c">
-      <div>
-        <div class="todo-text">Answer PM Awas Yojana eligibility query — Ward 8</div>
-        <div class="todo-meta">Question · Feb 18 · Janata Darbar</div>
-      </div>
-      <div class="todo-right">
-        <span class="tag red">W6 · Critical</span>
-        <div class="overdue">▲ 8 days overdue</div>
-      </div>
-    </div>
-
-    <div class="section-label">Urgent</div>
-
-    <div class="todo-item u">
-      <div>
-        <div class="todo-text">Street light outage — Ward 17 Sector 4</div>
-        <div class="todo-meta">Complaint cluster · 3 complaints · oldest Feb 20</div>
-      </div>
-      <div class="todo-right">
-        <span class="tag amber">W3 · Urgent</span>
-        <div class="due">6 days old</div>
-      </div>
-    </div>
-
-    <div class="todo-item u">
-      <div>
-        <div class="todo-text">Road repair status update — Ward 17 main road</div>
-        <div class="todo-meta">Commitment · Feb 10 · PWD meeting</div>
-      </div>
-      <div class="todo-right">
-        <span class="tag amber">W3 · Urgent</span>
-        <div class="due">4 days left</div>
-      </div>
-    </div>
-
-    <div class="section-label">Normal</div>
-
-    <div class="todo-item n">
-      <div>
-        <div class="todo-text">Call Commissioner Singh — road repair escalation</div>
-        <div class="todo-meta">Action item · Feb 22 · Meeting with DM</div>
-      </div>
-      <div class="todo-right"><span class="tag blue">W2 · Normal</span></div>
-    </div>
-
-    <div class="todo-item n">
-      <div>
-        <div class="todo-text">Water supply complaint — Ward 8, 2 complaints</div>
-        <div class="todo-meta">Complaint cluster · Feb 24 · Elderly citizen flagged</div>
-      </div>
-      <div class="todo-right"><span class="tag blue">W2 · Normal</span></div>
-    </div>
-
-    <div class="section-label">Low</div>
-
-    <div class="todo-item l">
-      <div>
-        <div class="todo-text">Review scheme penetration — Ward 3 and Ward 11</div>
-        <div class="todo-meta">Self-assigned · Feb 25</div>
-      </div>
-      <div class="todo-right"><span class="tag grey">W1 · Low</span></div>
-    </div>
+    <div style="color:#666;font-size:11px;padding:20px">Loading items...</div>
   </div>
 
   <!-- COMMITMENTS -->
@@ -358,6 +253,7 @@
         <button class="chat-send">Send</button>
       </div>
     </div>
+    <div class="mockup-indicator">MOCKUP: Backend logic not fully implemented</div>
   </div>
 
   <!-- SUGGESTIONS -->
@@ -390,6 +286,7 @@
           the system. Review before next interaction with this group.</div>
       </div>
     </div>
+    <div class="mockup-indicator">MOCKUP: Backend logic not fully implemented</div>
   </div>
 
   <!-- DIGEST -->
@@ -455,23 +352,23 @@
       </div>
     </div>
 
-    <div class="upload-zone" onclick="this.querySelector('input').click()">
+    <div class="upload-zone" onclick="this.querySelector('input').click()" id="meeting-upload-zone">
       <div class="upload-icon">↑</div>
-      <div class="upload-label">Drop file here or click to browse</div>
-      <div class="upload-sub">System will transcribe, diarize, and extract commitments automatically</div>
-      <input type="file" style="display:none">
+      <div class="upload-label" id="meeting-file-label">Drop .txt file here or click to browse</div>
+      <div class="upload-sub">Transcript only (.txt) · System will extract commitments automatically</div>
+      <input type="file" id="meeting-file-input" accept=".txt" style="display:none" onchange="document.getElementById('meeting-file-label').innerText = this.files[0].name">
     </div>
 
     <div class="section-label">Meeting details</div>
 
     <div class="field-row">
       <div class="field-label">Meeting date</div>
-      <input class="field-input" type="date">
+      <input class="field-input" type="date" id="meeting-date">
     </div>
 
     <div class="field-row">
       <div class="field-label">Meeting type</div>
-      <select class="field-input">
+      <select class="field-input" id="meeting-type">
         <option>Constituency office</option>
         <option>Department / bureaucrat</option>
         <option>Party internal</option>
@@ -482,41 +379,22 @@
     </div>
 
     <div class="field-row">
-      <div class="field-label">Participants (optional — helps diarization)</div>
-      <input class="field-input" type="text" placeholder="e.g. Commissioner Singh, Ward Councillor Sharma">
+      <div class="field-label">Participants (optional)</div>
+      <input class="field-input" type="text" id="meeting-participants" placeholder="e.g. Commissioner Singh, Ward Councillor Sharma">
     </div>
 
     <div class="field-row">
       <div class="field-label">Notes (optional)</div>
-      <textarea class="field-input" placeholder="Any context you want the system to know about this meeting"></textarea>
+      <textarea class="field-input" id="meeting-notes" placeholder="Any context you want the system to know about this meeting"></textarea>
     </div>
 
-    <button class="submit-btn">Upload and Process</button>
+    <button class="submit-btn" id="meeting-upload-btn" onclick="uploadMeeting()">Upload and Process</button>
+    <div id="meeting-upload-status" style="display:none;margin-top:12px;font-size:11px;color:var(--green)"></div>
 
     <div class="section-label" style="margin-top:36px">Recently uploaded</div>
 
     <div class="uploaded-list">
-      <div class="uploaded-item">
-        <div>
-          <div class="uploaded-name">Ward Councillors Meeting — Jan 20</div>
-          <div class="uploaded-meta">Audio · 48 min · 4 commitments extracted · 2 action items</div>
-        </div>
-        <span class="status-chip done">Processed</span>
-      </div>
-      <div class="uploaded-item">
-        <div>
-          <div class="uploaded-name">PWD Meeting — Feb 10</div>
-          <div class="uploaded-meta">Transcript · 3 commitments extracted · 1 action item</div>
-        </div>
-        <span class="status-chip done">Processed</span>
-      </div>
-      <div class="uploaded-item">
-        <div>
-          <div class="uploaded-name">Lok Sabha — Budget Session Feb 22</div>
-          <div class="uploaded-meta">Parliament transcript · Processing...</div>
-        </div>
-        <span class="status-chip proc">Processing</span>
-      </div>
+      <div style="color:#666;font-size:11px;padding:20px">Loading recent meetings...</div>
     </div>
   </div>
 
@@ -574,36 +452,8 @@
 
     <div class="section-label" style="margin-top:36px">Recent entries</div>
 
-    <div class="issue-list">
-      <div class="issue-item open">
-        <div>
-          <div class="issue-text">Nala overflow near plot 34 — 3 days continuous</div>
-          <div class="issue-meta">Ramesh Kumar · Ward 42 · Walk-in · Feb 24 · Linked: Drainage W42 cluster</div>
-        </div>
-        <span class="tag red">Open</span>
-      </div>
-      <div class="issue-item open">
-        <div>
-          <div class="issue-text">Street light not working outside school — safety concern</div>
-          <div class="issue-meta">Sunita Devi · Ward 17 Sector 4 · Physical letter · Feb 20 · Linked: Street light W17
-            cluster</div>
-        </div>
-        <span class="tag red">Open</span>
-      </div>
-      <div class="issue-item prog">
-        <div>
-          <div class="issue-text">Water supply cut for 2 days — elderly citizen alone</div>
-          <div class="issue-meta">Mohan Lal · Ward 8 · CPGRAMS · Feb 24 · New cluster created</div>
-        </div>
-        <span class="tag amber">In Progress</span>
-      </div>
-      <div class="issue-item closed">
-        <div>
-          <div class="issue-text">Illegal encroachment on community park entrance</div>
-          <div class="issue-meta">RWA Ward 3 · Walk-in · Feb 15 · Resolved Feb 26</div>
-        </div>
-        <span class="tag green">Resolved</span>
-      </div>
+    <div id="recent-complaints-list" class="issue-list">
+      <div style="color:#666;font-size:11px;padding:20px">Loading recent entries...</div>
     </div>
   </div>
 
@@ -639,17 +489,17 @@
 
     <div class="upload-zone" onclick="this.querySelector('input').click()" style="margin-bottom:14px">
       <div class="upload-icon">↑</div>
-      <div class="upload-label">Drop .txt or .transcript file here or click to browse</div>
-      <div class="upload-sub">Text or Transcripts only · injected into DB1 as permanent context</div>
-      <input type="file" accept=".txt,.transcript" style="display:none">
+      <div class="upload-label" id="ctx-file-label">Drop .txt file here or click to browse</div>
+      <div class="upload-sub">Text only (.txt) · injected into DB1 as permanent context</div>
+      <input type="file" id="ctx-file-input" accept=".txt" style="display:none" onchange="document.getElementById('ctx-file-label').innerText = this.files[0].name">
     </div>
 
     <div class="field-row">
       <div class="field-label">Label for this context file</div>
-      <input class="field-input" type="text" placeholder="e.g. Ward 42 census 2024, PM Awas scheme details">
+      <input class="field-input" type="text" id="ctx-label" placeholder="e.g. Ward 42 census 2024, PM Awas scheme details">
     </div>
 
-    <button class="submit-btn" style="margin-bottom:24px" onclick="fakeInject()">Inject into DB1</button>
+    <button class="submit-btn" style="margin-bottom:24px" id="ctx-upload-btn" onclick="uploadContext()">Inject into DB1</button>
 
     <div id="inject-confirm" style="display:none;margin-bottom:16px;font-size:11px;color:var(--green)">
       Context injected — DB1 updated
@@ -658,27 +508,7 @@
     <div class="section-label" style="margin-top:0">Injected context files</div>
 
     <div class="uploaded-list">
-      <div class="uploaded-item">
-        <div>
-          <div class="uploaded-name">Ward 42 infrastructure report.txt</div>
-          <div class="uploaded-meta">Constituency Data · 3.2 KB · Injected 20 days ago</div>
-        </div>
-        <span class="status-chip done">Active</span>
-      </div>
-      <div class="uploaded-item">
-        <div>
-          <div class="uploaded-name">PM Awas Yojana eligibility criteria.txt</div>
-          <div class="uploaded-meta">Scheme Details · 1.1 KB · Injected Feb 14</div>
-        </div>
-        <span class="status-chip done">Active</span>
-      </div>
-      <div class="uploaded-item">
-        <div>
-          <div class="uploaded-name">Delhi census ward-level 2023.txt</div>
-          <div class="uploaded-meta">Constituency Data · 8.7 KB · Injected Feb 18</div>
-        </div>
-        <span class="status-chip done">Active</span>
-      </div>
+      <div style="color:#666;font-size:11px;padding:20px">Loading context files...</div>
     </div>
 
     <div class="section-label">MLA details</div>
