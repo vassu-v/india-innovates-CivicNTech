@@ -28,7 +28,10 @@
       if (profile) {
         document.getElementById('top-user-name').innerText = profile.name;
         document.getElementById('top-user-sub').innerText = `${profile.designation} · ${profile.ward_name}`;
-        document.getElementById('hero-user-name').innerText = profile.name.split(' ').slice(0, -1).join(' '); // Name without last name roughly
+          // Show first name or the only name
+          const nameParts = profile.name.split(' ');
+          const displayName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+          document.getElementById('hero-user-name').innerText = displayName;
         document.getElementById('hero-user-meta').innerText = `${profile.designation} · ${profile.ward_name} · Term since ${profile.term_start}`;
       }
 
@@ -99,10 +102,14 @@
           const label = todoContainer.querySelector('.home-card-label').outerHTML;
           let html = label;
           const allItems = [...(todo.meeting_items || []), ...(todo.issue_items || [])].sort((a, b) => b.weight - a.weight);
-          allItems.slice(0, 4).forEach(item => {
-            const overdueText = item.days_overdue > 0 ? `${item.days_overdue}d overdue` : (item.urgency || '');
-            html += `<div class="home-urgent-item"><span class="hui-text">${item.title}</span><span class="hui-tag ${item.urgency === 'critical' ? '' : 'amber'}">${item.ward || 'Gen'} · ${overdueText}</span></div>`;
-          });
+          if (allItems.length === 0) {
+            html += `<div style="color:#888;font-size:11px;padding:10px 0">No urgent items found</div>`;
+          } else {
+            allItems.slice(0, 4).forEach(item => {
+              const overdueText = item.days_overdue > 0 ? `${item.days_overdue}d overdue` : (item.urgency || '');
+              html += `<div class="home-urgent-item"><span class="hui-text">${item.title}</span><span class="hui-tag ${item.urgency === 'critical' ? '' : 'amber'}">${item.ward || 'Gen'} · ${overdueText}</span></div>`;
+            });
+          }
           todoContainer.innerHTML = html;
         }
       }
@@ -112,13 +119,17 @@
         if (container) {
           const label = container.querySelector('.home-card-label').outerHTML;
           let html = label;
-          clusters.slice(0, 4).forEach(c => {
-            html += `
-                <div class="home-urgent-item">
-                    <span class="hui-text">${c.summary}</span>
-                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
-                </div>`;
-          });
+          if (clusters.length === 0) {
+            html += `<div style="color:#888;font-size:11px;padding:10px 0">No complaint clusters found</div>`;
+          } else {
+            clusters.slice(0, 4).forEach(c => {
+              html += `
+                  <div class="home-urgent-item">
+                      <span class="hui-text">${c.summary}</span>
+                      <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
+                  </div>`;
+            });
+          }
           container.innerHTML = html;
         }
       }
@@ -144,6 +155,115 @@
       }
     }
 
+async function uploadMeeting() {
+  const fileInput = document.getElementById('meeting-file-input');
+  const dateInput = document.getElementById('meeting-date');
+  const typeInput = document.getElementById('meeting-type');
+  const participantsInput = document.getElementById('meeting-participants');
+  const notesInput = document.getElementById('meeting-notes');
+  const btn = document.getElementById('meeting-upload-btn');
+  const status = document.getElementById('meeting-upload-status');
+
+  if (!fileInput.files[0]) return alert('Please select a transcript file (.txt)');
+  if (!dateInput.value) return alert('Please select meeting date');
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('meeting_date', dateInput.value);
+  formData.append('meeting_type', typeInput.value);
+  if (participantsInput.value) formData.append('participants', participantsInput.value);
+  if (notesInput.value) formData.append('notes', notesInput.value);
+
+  btn.innerText = 'Processing...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/upload/meeting', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if (res.ok) {
+      status.innerText = `Success! ${result.extracted_count} items extracted from ${result.filename}.`;
+      status.style.display = 'block';
+      setTimeout(() => status.style.display = 'none', 5000);
+      loadRecentMeetings();
+      loadTodo();
+      loadHome();
+    } else {
+      alert('Error: ' + result.detail);
+    }
+  } catch (e) {
+    alert('Failed to upload: ' + e);
+  } finally {
+    btn.innerText = 'Upload and Process';
+    btn.disabled = false;
+  }
+}
+
+async function uploadContext() {
+  const fileInput = document.getElementById('ctx-file-input');
+  const labelInput = document.getElementById('ctx-label');
+  const typeSelect = document.querySelector('#page-profile .upload-type.selected .upload-type-name');
+  const btn = document.getElementById('ctx-upload-btn');
+
+  if (!fileInput.files[0]) return alert('Please select a text file (.txt)');
+  if (!labelInput.value) return alert('Please enter a label');
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('label', labelInput.value);
+  formData.append('category', typeSelect.innerText);
+
+  btn.innerText = 'Injecting...';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/upload/context', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await res.json();
+    if (res.ok) {
+      document.getElementById('inject-confirm').style.display = 'block';
+      setTimeout(() => document.getElementById('inject-confirm').style.display = 'none', 3000);
+      loadContextFiles();
+    } else {
+      alert('Error: ' + result.detail);
+    }
+  } catch (e) {
+    alert('Failed to inject: ' + e);
+  } finally {
+    btn.innerText = 'Inject into DB1';
+    btn.disabled = false;
+  }
+}
+
+async function loadContextFiles() {
+  const files = await fetchData('/api/context/files');
+  if (files) {
+    const list = document.querySelector('#page-profile .uploaded-list');
+    if (list) {
+      list.innerHTML = files.map(f => `
+        <div class="uploaded-item">
+          <div>
+            <div class="uploaded-name">${f.label} (${f.filename})</div>
+            <div class="uploaded-meta">${f.category} · ${new Date(f.created_at).toLocaleDateString()}</div>
+          </div>
+          <span class="status-chip done">Active</span>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+// Update initial load
+document.addEventListener('DOMContentLoaded', () => {
+  loadProfile();
+  loadHome();
+  loadContextFiles();
+});
+
     async function loadTodo(filter = null) {
       let url = '/api/todo';
       const todo = await fetchData(url);
@@ -157,9 +277,18 @@
 
         const container = document.getElementById('page-todo');
         const title = container.querySelector('.page-title').outerHTML;
-        const sub = `<div class="page-sub">${allItems.length} ${filter ? filter.urgency : ''} pending · Ranked by weight</div>`;
+    const summaryText = `${allItems.length} ${filter ? filter.urgency : ''} pending`;
+    const sub = `
+    <div class="page-sub">
+      <span id="todo-stats-summary">${summaryText}</span> · Ranked by weight
+      <button class="gen-btn" style="float:right;margin:0;padding:4px 10px;font-size:10px" onclick="liveEscalate()">Live Escalate</button>
+    </div>`;
 
         let html = title + sub;
+
+    if (allItems.length === 0) {
+      html += `<div style="color:#666;font-size:11px;padding:20px">No pending items found</div>`;
+    }
 
         const renderItems = (items, label, className) => {
           if (items.length === 0) return '';
@@ -208,6 +337,20 @@
         }
       }
     }
+
+async function liveEscalate() {
+  const btn = event.target;
+  const originalText = btn.innerText;
+  btn.innerText = "Escalating...";
+  btn.disabled = true;
+  const res = await fetchData('/api/escalate', { method: 'POST' });
+  if (res) {
+    btn.innerText = originalText;
+    btn.disabled = false;
+    loadTodo();
+    loadHome();
+  }
+}
 
     async function extendItem(id) {
       const date = prompt("Enter new deadline (YYYY-MM-DD):");
@@ -503,15 +646,19 @@
       if (meetings) {
         const list = document.querySelector('#page-upload .uploaded-list');
         if (list) {
-          list.innerHTML = meetings.map(m => `
-            <div class="uploaded-item">
-              <div>
-                <div class="uploaded-name">${m.source_id} — ${m.meeting_date || 'N/A'}</div>
-                <div class="uploaded-meta">${m.commitments} commitments extracted</div>
+          if (meetings.length === 0) {
+            list.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No recent meetings found</div>';
+          } else {
+            list.innerHTML = meetings.map(m => `
+              <div class="uploaded-item">
+                <div>
+                  <div class="uploaded-name">${m.source_id} — ${m.meeting_date || 'N/A'}</div>
+                  <div class="uploaded-meta">${m.commitments} commitments extracted</div>
+                </div>
+                <span class="status-chip done">Processed</span>
               </div>
-              <span class="status-chip done">Processed</span>
-            </div>
-          `).join('');
+            `).join('');
+          }
         }
       }
     }

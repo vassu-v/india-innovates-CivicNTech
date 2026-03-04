@@ -71,12 +71,15 @@ def init_db():
     """)
     
     # Vector table (virtual table in sqlite-vec)
-    db.execute("""
-    CREATE VIRTUAL TABLE IF NOT EXISTS vec_clusters USING vec0(
-        cluster_id INTEGER PRIMARY KEY,
-        embedding float[384]
-    )
-    """)
+    try:
+        db.execute("""
+        CREATE VIRTUAL TABLE IF NOT EXISTS vec_clusters USING vec0(
+            cluster_id INTEGER PRIMARY KEY,
+            embedding float[384]
+        )
+        """)
+    except sqlite3.OperationalError:
+        print("Warning: sqlite-vec not available. Vector features will be limited.")
     db.commit()
     db.close()
 
@@ -101,8 +104,12 @@ def process_complaint(complaint_data):
     if not text:
         raise ValueError("complaint_text is required")
         
-    embedding = model.encode(text)
-    embedding_bytes = serialize_f32(embedding.tolist())
+    try:
+        embedding = model.encode(text)
+        embedding_bytes = serialize_f32(embedding.tolist())
+    except Exception as e:
+        print(f"Embedding generation failed: {e}")
+        embedding_bytes = None
     
     now = datetime.now().isoformat()
     
@@ -125,20 +132,24 @@ def process_complaint(complaint_data):
     complaint_id = cursor.lastrowid
     
     # 3. Search for similar clusters using cosine distance
-    # sqlite-vec distance_cosine: 0.0=identical, 2.0=opposite.
-    # similarity 0.75 means distance <= 0.25 (as 1 - 0.75 = 0.25)
-    max_distance = 1.0 - THRESHOLD
-    
-    cursor.execute("""
-        SELECT v.cluster_id, vec_distance_cosine(v.embedding, ?) as distance
-        FROM vec_clusters v
-        INNER JOIN clusters c ON v.cluster_id = c.id
-        WHERE c.ward = ?
-        ORDER BY distance ASC
-        LIMIT 1
-    """, (embedding_bytes, complaint_data.get('ward')))
-    
-    match = cursor.fetchone()
+    match = None
+    if embedding_bytes:
+        try:
+            # sqlite-vec distance_cosine: 0.0=identical, 2.0=opposite.
+            max_distance = 1.0 - THRESHOLD
+
+            cursor.execute("""
+                SELECT v.cluster_id, vec_distance_cosine(v.embedding, ?) as distance
+                FROM vec_clusters v
+                INNER JOIN clusters c ON v.cluster_id = c.id
+                WHERE c.ward = ?
+                ORDER BY distance ASC
+                LIMIT 1
+            """, (embedding_bytes, complaint_data.get('ward')))
+
+            match = cursor.fetchone()
+        except sqlite3.OperationalError:
+            pass # vec_clusters or vec_distance_cosine not available
         
     action = ""
     target_cluster_id = None
@@ -186,11 +197,15 @@ def process_complaint(complaint_data):
         
         target_cluster_id = cursor.lastrowid
         
-        # Store embedding
-        cursor.execute("""
-            INSERT INTO vec_clusters (cluster_id, embedding)
-            VALUES (?, ?)
-        """, (target_cluster_id, embedding_bytes))
+        # Store embedding if possible
+        if embedding_bytes:
+            try:
+                cursor.execute("""
+                    INSERT INTO vec_clusters (cluster_id, embedding)
+                    VALUES (?, ?)
+                """, (target_cluster_id, embedding_bytes))
+            except sqlite3.OperationalError:
+                pass
         
         action = "new_cluster_created"
         

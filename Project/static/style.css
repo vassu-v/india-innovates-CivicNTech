@@ -1044,3 +1044,19 @@
       display: inline-block;
       margin-right: 5px;
     }
+
+.mockup-indicator {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #f44336;
+  color: white;
+  text-align: center;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 4px;
+  z-index: 1000;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
