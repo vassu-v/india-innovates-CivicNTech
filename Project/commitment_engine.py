@@ -130,7 +130,7 @@ Deadline inference rules if not explicit:
   action     -> 5 days from meeting date
 """
         response = client.models.generate_content(
-            model='gemini-3-flash-preview',
+            model='gemini-2.0-flash',
             contents=prompt,
         )
         raw = response.text.strip()
@@ -188,7 +188,7 @@ Return a JSON array of objects only.
 No explanation. No markdown. No backticks. Just the JSON array.
 """
         response = client.models.generate_content(
-            model='gemini-1.5-flash', # Use 1.5-flash as it is more likely to be available/stable
+            model='gemini-3-flash-preview', 
             contents=prompt,
         )
         raw = response.text.strip()
@@ -213,7 +213,42 @@ No explanation. No markdown. No backticks. Just the JSON array.
         return count
     except Exception as e:
         print(f"Batch extraction failed: {e}")
-        return 0
+        print("Attempting regex fallback extraction...")
+        import re
+        
+        # Simple regex patterns for common commitment structures
+        patterns = [
+            (r'\"I will (.*?)\"', "commitment"),
+            (r'\"I need to (.*?)\"', "action"),
+            (r'\"Will (.*?)\"', "question"),
+            (r'(?:Commitment|Action|Question):\s*(.*?)(?:\.|$)', "commitment")
+        ]
+        
+        items = []
+        for pattern, item_type in patterns:
+            matches = re.findall(pattern, full_text, re.IGNORECASE)
+            for match in matches:
+                # Clean up the match
+                title = match.strip()
+                if len(title) > 10: # Avoid very short snippets
+                    items.append({
+                        "title": title[:100],
+                        "type": item_type
+                    })
+        
+        if not items:
+            return 0
+            
+        count = 0
+        for item in items:
+            add_item({
+                "text": item["title"],
+                "type": item["type"],
+                "source_id": source_id,
+                "meeting_date": meeting_date
+            })
+            count += 1
+        return count
 
 def add_item(input_data):
     """
@@ -234,7 +269,7 @@ def add_item(input_data):
         source_id = str(input_data["cluster_id"])
         to_whom = None
         ward = input_data.get("ward")
-        deadline = (datetime.datetime.now().date() + datetime.timedelta(days=7)).isoformat()
+        deadline = (datetime.datetime.now().date() + datetime.timedelta(days=14)).isoformat()
         weight = input_data.get("weight", 1)
         urgency = input_data.get("urgency", "normal")
         meeting_date = None
@@ -310,7 +345,7 @@ def escalate():
             continue
             
         try:
-            deadline = datetime.datetime.strptime(deadline_str, "%Y-%m-%d").date()
+            deadline = datetime.datetime.strptime(str(deadline_str), "%Y-%m-%d").date()
         except ValueError:
             continue
             
@@ -380,7 +415,7 @@ def get_todo_list(type=None, urgency=None, ward=None):
         days_overdue = 0
         if item["deadline"]:
             try:
-                deadline = datetime.datetime.strptime(item["deadline"], "%Y-%m-%d").date()
+                deadline = datetime.datetime.strptime(str(item["deadline"]), "%Y-%m-%d").date()
                 days_overdue = (today - deadline).days
             except ValueError:
                 pass
@@ -395,7 +430,9 @@ def get_todo_list(type=None, urgency=None, ward=None):
                 "ward": item["ward"],
                 "weight": item["weight"],
                 "urgency": item["urgency"],
-                "cluster_id": item["source_id"]
+                "cluster_id": item["source_id"],
+                "deadline": item["deadline"],
+                "days_overdue": item["days_overdue"]
             })
         else:
             response["meeting_items"].append({
