@@ -73,6 +73,17 @@ def init_db():
         pass # Already exists
     # Insert default if not exists
     cursor.execute("INSERT OR IGNORE INTO profile (id) VALUES (1)")
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS context_files (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename          TEXT,
+            label             TEXT,
+            category          TEXT,
+            content           TEXT,
+            created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -148,6 +159,62 @@ Deadline inference rules if not explicit:
             "type": item_type
         }, True
 
+def batch_extract_from_transcript(full_text, meeting_date, source_id):
+    """
+    Uses Gemini to extract multiple items from a full meeting transcript.
+    """
+    try:
+        if not client:
+            raise Exception("No client initialized.")
+
+        prompt = f"""
+You are an expert at analyzing governance meeting transcripts.
+Meeting date: {meeting_date}
+
+TRANSCRIPT:
+\"\"\"
+{full_text}
+\"\"\"
+
+Identify all commitments made by the MLA, questions asked to the MLA that need answering, and specific action items assigned or taken.
+For each item, extract:
+1. title (short, actionable)
+2. type (commitment, question, or action)
+3. to_whom (person or department involved)
+4. ward (if mentioned)
+5. deadline (YYYY-MM-DD or null)
+
+Return a JSON array of objects only.
+No explanation. No markdown. No backticks. Just the JSON array.
+"""
+        response = client.models.generate_content(
+            model='gemini-1.5-flash', # Use 1.5-flash as it is more likely to be available/stable
+            contents=prompt,
+        )
+        raw = response.text.strip()
+        if raw.startswith("```json"): raw = raw[7:]
+        if raw.startswith("```"): raw = raw[3:]
+        if raw.endswith("```"): raw = raw[:-3]
+        raw = raw.strip()
+
+        items = json.loads(raw)
+        count = 0
+        for item in items:
+            # Add to database
+            add_item({
+                "text": item.get("title", "Unknown item"), # title as raw_text for storage
+                "type": item.get("type", "commitment"),
+                "source_id": source_id,
+                "meeting_date": meeting_date,
+                # Pre-extracted fields to avoid double extraction in add_item if we refactor it
+                "_extracted": item
+            })
+            count += 1
+        return count
+    except Exception as e:
+        print(f"Batch extraction failed: {e}")
+        return 0
+
 def add_item(input_data):
     """
     input_data should be a dict containing standard fields.
@@ -194,7 +261,11 @@ def add_item(input_data):
         meeting_date = input_data.get("meeting_date", datetime.datetime.now().date().isoformat())
         source = "meeting"
         
-        extracted, extraction_failed = extract_with_gemini(raw_text, meeting_date, input_type)
+        if "_extracted" in input_data:
+            extracted = input_data["_extracted"]
+            extraction_failed = False
+        else:
+            extracted, extraction_failed = extract_with_gemini(raw_text, meeting_date, input_type)
         
         title = extracted.get("title", raw_text[:80])
         item_type = extracted.get("type", input_type)
@@ -266,14 +337,34 @@ def escalate():
     conn.commit()
     conn.close()
 
-def get_todo_list():
+def get_todo_list(type=None, urgency=None, ward=None):
+    """
+    Returns all pending items, split into meeting_items and issue_items.
+    Accepts optional filters: type, urgency, ward.
+    escalate() is called first to ensure fresh weights.
+    """
     escalate() # Ensure weights are fresh
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    cursor.execute("SELECT * FROM timely_items WHERE status = 'pending' ORDER BY weight DESC, deadline ASC")
+    query = "SELECT * FROM timely_items WHERE status = 'pending'"
+    params = []
+
+    if type:
+        query += " AND type = ?"
+        params.append(type)
+    if urgency:
+        query += " AND urgency = ?"
+        params.append(urgency)
+    if ward:
+        query += " AND ward = ?"
+        params.append(ward)
+
+    query += " ORDER BY weight DESC, deadline ASC"
+
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     
     response = {
@@ -540,6 +631,42 @@ def update_profile(data):
     conn.commit()
     conn.close()
     return True
+def get_history(limit=50, offset=0):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) as c FROM timely_items WHERE status = 'completed'")
+    total = cursor.fetchone()["c"]
+    cursor.execute("SELECT * FROM timely_items WHERE status = 'completed' ORDER BY completed_at DESC LIMIT ? OFFSET ?", (limit, offset))
+    rows = cursor.fetchall()
+    conn.close()
+    items = []
+    for row in rows:
+        item = dict(row)
+        # minimal compute for history list
+        items.append(item)
+    return {"total": total, "items": items}
+
+def add_context_file(filename, label, category, content):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO context_files (filename, label, category, content)
+        VALUES (?, ?, ?, ?)
+    """, (filename, label, category, content))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_context_files():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM context_files ORDER BY created_at DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
 def get_recent_meetings(limit=5):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

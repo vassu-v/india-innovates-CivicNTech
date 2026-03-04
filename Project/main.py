@@ -1,21 +1,33 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from contextlib import asynccontextmanager
 import os
+import asyncio
 import commitment_engine
 import issue_engine
 import digest_engine
+
+async def auto_escalate_task():
+    while True:
+        try:
+            print("Auto-escalating items...")
+            commitment_engine.escalate()
+        except Exception as e:
+            print(f"Auto-escalation error: {e}")
+        await asyncio.sleep(3600) # Run every hour
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     commitment_engine.init_db()
     issue_engine.init_db()
+    asyncio.create_task(auto_escalate_task())
     yield
 
 app = FastAPI(title="Co-Pilot API", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="Project/static"), name="static")
 
 # Models
 class ItemCreate(BaseModel):
@@ -52,7 +64,7 @@ def get_digest():
 
 @app.get("/api/todo")
 def get_todo(type: Optional[str] = None, urgency: Optional[str] = None, ward: Optional[str] = None):
-    return digest_engine.get_todo_list(type=type, urgency=urgency, ward=ward)
+    return commitment_engine.get_todo_list(type=type, urgency=urgency, ward=ward)
 
 @app.post("/api/item")
 def add_item(item: ItemCreate):
@@ -109,7 +121,7 @@ def extend_item(item_id: int, req: ExtendRequest):
 
 @app.get("/api/history")
 def get_history(limit: int = 50, offset: int = 0):
-    return digest_engine.get_history(limit=limit, offset=offset)
+    return commitment_engine.get_history(limit=limit, offset=offset)
 
 @app.get("/api/profile")
 def get_profile():
@@ -128,7 +140,46 @@ def get_recent_meetings():
 
 @app.get("/api/stats")
 def get_stats():
-    return digest_engine.get_stats()
+    return commitment_engine.get_stats()
+
+@app.post("/api/upload/meeting")
+async def upload_meeting(
+    file: UploadFile = File(...),
+    meeting_date: str = Form(...),
+    meeting_type: str = Form(...),
+    participants: Optional[str] = Form(None),
+    notes: Optional[str] = Form(None)
+):
+    if not file.filename.endswith(".txt"):
+        raise HTTPException(status_code=400, detail="Only .txt files are supported for transcripts.")
+
+    content = await file.read()
+    text = content.decode("utf-8")
+
+    # Process transcript
+    count = commitment_engine.batch_extract_from_transcript(text, meeting_date, file.filename)
+
+    return {"status": "success", "extracted_count": count, "filename": file.filename}
+
+@app.post("/api/upload/context")
+async def upload_context(
+    file: UploadFile = File(...),
+    label: str = Form(...),
+    category: str = Form(...)
+):
+    if not file.filename.endswith(".txt"):
+        raise HTTPException(status_code=400, detail="Only .txt files are supported for context.")
+
+    content = await file.read()
+    text = content.decode("utf-8")
+
+    commitment_engine.add_context_file(file.filename, label, category, text)
+
+    return {"status": "success", "filename": file.filename}
+
+@app.get("/api/context/files")
+def get_context_files():
+    return commitment_engine.get_context_files()
 
 # Serve Frontend
 @app.get("/")

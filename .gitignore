@@ -1,16 +1,4 @@
-# Environment files — never commit API keys
-.env
-*.env
-
-# SQLite databases — local data only
 *.db
-!copilot.db
-
-# Python cache
+*.log
 __pycache__/
-*.pyc
-*.pyo
-
-# OS files
-.DS_Store
-Thumbs.db
+.env
