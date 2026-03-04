@@ -1,0 +1,517 @@
+    async function fetchData(url, options = {}) {
+      try {
+        const response = await fetch(url, options);
+        if (!response.ok) throw new Error('Network response was not ok');
+        return await response.json();
+      } catch (error) {
+        console.error('Fetch error:', error);
+        return null;
+      }
+    }
+
+    async function loadHome() {
+      const stats = await fetchData('/api/stats');
+      const digest = await fetchData('/api/digest');
+      const clusters = await fetchData('/api/issues/clusters');
+      const profile = await fetchData('/api/profile');
+      const todo = await fetchData('/api/todo'); // Fetch todo items
+
+      // Dynamic Date for Home
+      const now = new Date();
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const homeDateDay = document.getElementById('home-date-day');
+      const homeDateFull = document.getElementById('home-date-full');
+      if (homeDateDay) homeDateDay.innerText = now.getDate();
+      if (homeDateFull) homeDateFull.innerText = `${days[now.getDay()]} · ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+      if (profile) {
+        document.getElementById('top-user-name').innerText = profile.name;
+        document.getElementById('top-user-sub').innerText = `${profile.designation} · ${profile.ward_name}`;
+        document.getElementById('hero-user-name').innerText = profile.name.split(' ').slice(0, -1).join(' '); // Name without last name roughly
+        document.getElementById('hero-user-meta').innerText = `${profile.designation} · ${profile.ward_name} · Term since ${profile.term_start}`;
+      }
+
+      if (digest) {
+        // Update stats
+        document.querySelector('.stat-num.red').innerText = digest.open_right_now.critical;
+        document.querySelector('.stat-num.amber').innerText = digest.open_right_now.urgent;
+        document.querySelector('.stat-num.blue').innerText = digest.open_right_now.total;
+        document.querySelector('.stat-num.green').innerText = digest.resolved.resolution_rate + '%';
+
+        // Update small stats at top
+        const hqs = document.querySelectorAll('.hqs-num');
+        if (hqs.length >= 4) {
+          hqs[0].innerText = digest.open_right_now.critical;
+          hqs[1].innerText = digest.open_right_now.urgent;
+          hqs[2].innerText = digest.open_right_now.total;
+          hqs[3].innerText = digest.resolved.resolution_rate + '%';
+        }
+
+        // Update Today at a Glance
+        const rows = document.querySelectorAll('#page-home .home-digest-row');
+        if (rows.length >= 5) {
+          rows[0].querySelector('.hdr-val').innerText = digest.new_items.issues;
+          rows[0].classList.add('clickable');
+          rows[0].onclick = () => drillDown('New Complaints', 'new_items');
+
+          rows[1].querySelector('.hdr-val').innerText = digest.became_overdue_this_week.length + ' tasks';
+          rows[1].classList.add('clickable');
+          rows[1].onclick = () => drillDown('Overdue Tasks', 'became_overdue');
+
+          rows[2].querySelector('.hdr-val').innerText = digest.resolved.total;
+          rows[2].classList.add('clickable');
+          rows[2].onclick = () => drillDown('Resolved this week', 'resolved');
+
+          rows[3].querySelector('.hdr-val').innerText = digest.new_items.commitments;
+          rows[3].classList.add('clickable');
+          rows[3].onclick = () => drillDown('New Commitments', 'new_commitments');
+
+          rows[4].querySelector('.hdr-val').innerText = digest.most_overdue.title ? digest.most_overdue.days_overdue + ' days' : '0 days';
+        }
+      }
+
+      if (stats) {
+        // Update Patterns card
+        const patternsContainer = document.querySelector('#page-home .home-card[onclick*="commitments"]');
+        if (patternsContainer) {
+          const label = patternsContainer.querySelector('.home-card-label').outerHTML;
+          let html = label;
+
+          // Helper to add patterns
+          if (stats.all_time.most_reliable_contact) {
+            html += `<div class="home-pattern"><div class="pdot" style="background:var(--green)"></div><div>${stats.all_time.most_reliable_contact}: Most reliable contact</div></div>`;
+          }
+          if (stats.all_time.avg_days_to_resolve > 0) {
+            html += `<div class="home-pattern"><div class="pdot" style="background:var(--blue)"></div><div>Avg resolution: ${Math.round(stats.all_time.avg_days_to_resolve)} days</div></div>`;
+          }
+          if (stats.all_time.extension_rate > 20) {
+            html += `<div class="home-pattern"><div class="pdot" style="background:var(--amber)"></div><div>High extension rate: ${Math.round(stats.all_time.extension_rate)}%</div></div>`;
+          }
+
+          patternsContainer.innerHTML = html;
+        }
+      }
+      // loadClusters(); // Original call, now moved inside loadHome
+      if (todo) {
+        const todoContainer = document.querySelector('#page-home .home-grid .home-card[onclick*="todo"]');
+        if (todoContainer) {
+          const label = todoContainer.querySelector('.home-card-label').outerHTML;
+          let html = label;
+          const allItems = [...(todo.meeting_items || []), ...(todo.issue_items || [])].sort((a, b) => b.weight - a.weight);
+          allItems.slice(0, 4).forEach(item => {
+            const overdueText = item.days_overdue > 0 ? `${item.days_overdue}d overdue` : (item.urgency || '');
+            html += `<div class="home-urgent-item"><span class="hui-text">${item.title}</span><span class="hui-tag ${item.urgency === 'critical' ? '' : 'amber'}">${item.ward || 'Gen'} · ${overdueText}</span></div>`;
+          });
+          todoContainer.innerHTML = html;
+        }
+      }
+
+      if (clusters) {
+        const container = document.querySelector('#page-home .home-card[onclick*="issues"]');
+        if (container) {
+          const label = container.querySelector('.home-card-label').outerHTML;
+          let html = label;
+          clusters.slice(0, 4).forEach(c => {
+            html += `
+                <div class="home-urgent-item">
+                    <span class="hui-text">${c.summary}</span>
+                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
+                </div>`;
+          });
+          container.innerHTML = html;
+        }
+      }
+      loadRecentMeetings();
+    }
+
+    async function loadClusters() {
+      const clusters = await fetchData('/api/issues/clusters');
+      if (clusters) {
+        const container = document.querySelector('#page-home .home-card[onclick*="issues"]');
+        if (container) {
+          const label = container.querySelector('.home-card-label').outerHTML;
+          let html = label;
+          clusters.slice(0, 4).forEach(c => {
+            html += `
+                <div class="home-urgent-item">
+                    <span class="hui-text">${c.summary}</span>
+                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
+                </div>`;
+          });
+          container.innerHTML = html;
+        }
+      }
+    }
+
+    async function loadTodo(filter = null) {
+      let url = '/api/todo';
+      const todo = await fetchData(url);
+      if (todo) {
+        let allItems = [...todo.meeting_items, ...todo.issue_items];
+
+        // Apply frontend filter if provided
+        if (filter && filter.urgency) {
+          allItems = allItems.filter(i => i.urgency === filter.urgency);
+        }
+
+        const container = document.getElementById('page-todo');
+        const title = container.querySelector('.page-title').outerHTML;
+        const sub = `<div class="page-sub">${allItems.length} ${filter ? filter.urgency : ''} pending · Ranked by weight</div>`;
+
+        let html = title + sub;
+
+        const renderItems = (items, label, className) => {
+          if (items.length === 0) return '';
+          let section = `<div class="section-label">${label}</div>`;
+          items.forEach(item => {
+            section += `
+            <div class="todo-item ${className}">
+              <div onclick="completeItem(${item.id})">
+                <div class="todo-text">${item.title}</div>
+                <div class="todo-meta">${item.type} · ${item.ward || 'General'}</div>
+              </div>
+              <div class="todo-right">
+                <span class="tag ${className === 'c' ? 'red' : className === 'u' ? 'amber' : 'blue'}">${item.urgency}</span>
+                ${item.days_overdue > 0 ? `<div class="overdue">▲ ${item.days_overdue} days overdue</div>` : ''}
+                <button class="gen-btn" style="padding:2px 5px;font-size:8px;margin-top:5px" onclick="extendItem(${item.id})">Extend</button>
+              </div>
+            </div>`;
+          });
+          return section;
+        };
+
+        const critical = allItems.filter(i => i.urgency === 'critical');
+        const urgent = allItems.filter(i => i.urgency === 'urgent');
+        const normal = allItems.filter(i => i.urgency === 'normal');
+
+        html += renderItems(critical, 'Critical', 'c');
+        html += renderItems(urgent, 'Urgent', 'u');
+        html += renderItems(normal, 'Normal', 'n');
+
+        container.innerHTML = html;
+      }
+    }
+
+    async function completeItem(id) {
+      if (confirm('Mark this item as completed?')) {
+        const res = await fetchData(`/api/item/${id}/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resolution_notes: "Completed via dashboard" })
+        });
+        if (res) {
+          alert('Item completed!');
+          loadTodo();
+          loadHome();
+          loadHistory(); // Also refresh history/commitments page
+        }
+      }
+    }
+
+    async function extendItem(id) {
+      const date = prompt("Enter new deadline (YYYY-MM-DD):");
+      if (date) {
+        const res = await fetchData(`/api/item/${id}/extend`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ new_deadline: date })
+        });
+        if (res) {
+          alert('Deadline extended');
+          loadTodo();
+          loadHistory(); // Also refresh history/commitments page
+        }
+      }
+    }
+
+    async function loadHistory() {
+      // 1. Fetch active commitments for the tracker
+      const activeCommitments = await fetchData('/api/todo?type=commitment');
+      const activeList = document.getElementById('active-commitments-list');
+      if (activeCommitments && activeList) {
+        let items = [...activeCommitments.meeting_items, ...activeCommitments.issue_items];
+        if (items.length === 0) {
+          activeList.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No active commitments found</div>';
+        } else {
+          activeList.innerHTML = items.map(item => `
+            <div class="todo-item n" style="margin-bottom:10px">
+              <div>
+                <div class="todo-text">${item.title}</div>
+                <div class="todo-meta">${item.to_whom || ''} · ${item.ward || 'General'} · Deadline: ${item.deadline || 'None'}</div>
+              </div>
+              <div class="todo-right">
+                 <button class="gen-btn" style="padding:4px 8px;font-size:9px" onclick="completeItem(${item.id})">Mark Done</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+
+      // 2. Fetch history for the recently resolved section
+      const history = await fetchData('/api/history');
+      if (history) {
+        const container = document.getElementById('page-commitments');
+        let histDiv = document.getElementById('history-section');
+        if (!histDiv) {
+          histDiv = document.createElement('div');
+          histDiv.id = 'history-section';
+          container.appendChild(histDiv);
+        }
+
+        let html = '<div class="section-label">Recently Resolved</div><div class="issue-list">';
+        history.items.slice(0, 10).forEach(item => {
+          html += `
+            <div class="issue-item closed">
+                <div>
+                    <div class="issue-text">${item.title}</div>
+                    <div class="issue-meta">${item.to_whom || ''} · ${item.ward || 'General'} · Resolved ${item.completed_at ? item.completed_at.split('T')[0] : ''}</div>
+                </div>
+                <span class="tag green">Resolved</span>
+            </div>`;
+        });
+        html += '</div>';
+        histDiv.innerHTML = html;
+      }
+    }
+
+    let globalDigestData = null;
+
+    async function loadDigestView() {
+      const digest = await fetchData('/api/digest');
+      globalDigestData = digest; // Store for drillDown
+      if (digest) {
+        // Dynamic Range
+        const now = new Date();
+        const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const options = { day: 'numeric', month: 'long' };
+        const digestWeekRange = document.getElementById('digest-week-range');
+        if (digestWeekRange) digestWeekRange.innerText = `Week of ${lastWeek.toLocaleDateString('en-IN', options)} – ${now.toLocaleDateString('en-IN', options)} ${now.getFullYear()}`;
+
+        document.getElementById('dw-new-issues').innerText = digest.new_items.issues;
+        document.getElementById('dw-resolved').innerText = digest.resolved.total;
+        document.getElementById('dw-overdue').innerText = digest.became_overdue_this_week.length;
+        document.getElementById('dw-new-commitments').innerText = digest.new_items.commitments;
+        document.getElementById('dw-open-critical').innerText = digest.open_right_now.critical;
+        document.getElementById('dw-open-urgent').innerText = digest.open_right_now.urgent;
+      }
+    }
+
+    function drillDown(title, key) {
+      if (!globalDigestData) return;
+      let items = [];
+      if (key === 'new_items') items = globalDigestData.new_items.items.filter(i => i.type === 'issue');
+      if (key === 'new_commitments') items = globalDigestData.new_items.items.filter(i => i.type !== 'issue');
+      if (key === 'resolved') items = globalDigestData.resolved.items;
+      if (key === 'became_overdue') items = globalDigestData.became_overdue_this_week;
+
+      showOverlay(title, items);
+    }
+
+    function showOverlay(title, items) {
+      let overlay = document.getElementById('drilldown-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'drilldown-overlay';
+        overlay.style = "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px";
+        overlay.innerHTML = `
+          <div style="background:#111;width:100%;max-width:500px;max-height:80%;overflow:auto;border-radius:12px;padding:20px;border:1px solid #333">
+            <div style="display:flex;justify-content:space-between;margin-bottom:15px">
+              <div class="section-label" id="overlay-title" style="margin:0;color:var(--mid)"></div>
+              <button onclick="document.getElementById('drilldown-overlay').style.display='none'" style="background:none;border:none;color:#888;cursor:pointer;font-size:16px">✕</button>
+            </div>
+            <div id="overlay-content" class="issue-list"></div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+
+      document.getElementById('overlay-title').innerText = title;
+      const content = document.getElementById('overlay-content');
+      if (items.length === 0) {
+        content.innerHTML = '<div style="color:#666;font-size:11px">No items found</div>';
+      } else {
+        content.innerHTML = items.map(item => `
+          <div class="issue-item">
+            <div>
+              <div class="issue-text" style="color:#fff">${item.title}</div>
+              <div class="issue-meta" style="color:#888">${item.type} · ${item.ward || 'General'} · ${item.deadline || 'No deadline'}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+      overlay.style.display = 'flex';
+    }
+
+    function goTodo(urgency) {
+      goPage('todo', { urgency });
+    }
+
+    async function loadProfile() {
+      const p = await fetchData('/api/profile');
+      if (p) {
+        if (document.getElementById('prof-name')) document.getElementById('prof-name').value = p.name;
+        if (document.getElementById('prof-party')) document.getElementById('prof-party').value = p.party;
+        if (document.getElementById('prof-designation')) document.getElementById('prof-designation').value = p.designation;
+        if (document.getElementById('prof-term')) document.getElementById('prof-term').value = p.term_start;
+        if (document.getElementById('prof-email')) document.getElementById('prof-email').value = p.email;
+        if (document.getElementById('prof-contact')) document.getElementById('prof-contact').value = p.contact;
+        if (document.getElementById('prof-ward-name')) document.getElementById('prof-ward-name').value = p.ward_name;
+        if (document.getElementById('prof-state')) document.getElementById('prof-state').value = p.state;
+        if (document.getElementById('prof-district')) document.getElementById('prof-district').value = p.district;
+        if (document.getElementById('prof-wards-covered')) document.getElementById('prof-wards-covered').value = p.wards_covered;
+        if (document.getElementById('prof-population')) document.getElementById('prof-population').value = p.population;
+        if (document.getElementById('prof-voters')) document.getElementById('prof-voters').value = p.registered_voters;
+        if (document.getElementById('prof-address')) document.getElementById('prof-address').value = p.office_address;
+        if (document.getElementById('prof-jd-day')) document.getElementById('prof-jd-day').value = p.janata_darbar_day;
+        if (document.getElementById('prof-jd-time')) document.getElementById('prof-jd-time').value = p.janata_darbar_time;
+        if (document.getElementById('prof-pa-name')) document.getElementById('prof-pa-name').value = p.pa_name;
+        if (document.getElementById('prof-pa-contact')) document.getElementById('prof-pa-contact').value = p.pa_contact;
+        if (document.getElementById('prof-manager-name')) document.getElementById('prof-manager-name').value = p.manager_name;
+        if (document.getElementById('prof-manager-contact')) document.getElementById('prof-manager-contact').value = p.manager_contact;
+      }
+    }
+
+    async function saveProfile() {
+      const data = {
+        name: document.getElementById('prof-name').value,
+        party: document.getElementById('prof-party').value,
+        designation: document.getElementById('prof-designation').value,
+        term_start: document.getElementById('prof-term').value,
+        email: document.getElementById('prof-email').value,
+        contact: document.getElementById('prof-contact').value,
+        ward_name: document.getElementById('prof-ward-name').value,
+        state: document.getElementById('prof-state').value,
+        district: document.getElementById('prof-district').value,
+        wards_covered: document.getElementById('prof-wards-covered').value,
+        population: document.getElementById('prof-population').value,
+        registered_voters: document.getElementById('prof-voters').value,
+        office_address: document.getElementById('prof-address').value,
+        janata_darbar_day: document.getElementById('prof-jd-day').value,
+        janata_darbar_time: document.getElementById('prof-jd-time').value,
+        pa_name: document.getElementById('prof-pa-name').value,
+        pa_contact: document.getElementById('prof-pa-contact').value,
+        manager_name: document.getElementById('prof-manager-name').value,
+        manager_contact: document.getElementById('prof-manager-contact').value
+      };
+
+      const res = await fetchData('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res) {
+        document.getElementById('prof-confirm').style.display = 'block';
+        setTimeout(() => { document.getElementById('prof-confirm').style.display = 'none'; }, 3000);
+        loadHome();
+      }
+    }
+
+    function go(tab, page, filter = null) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      const targetPage = document.getElementById('page-' + page);
+      if (targetPage) targetPage.classList.add('active');
+      if (tab) tab.classList.add('active');
+
+      if (page === 'home') loadHome();
+      if (page === 'todo') loadTodo(filter);
+      if (page === 'commitments') loadHistory();
+      if (page === 'digest') loadDigestView();
+      if (page === 'profile') loadProfile();
+      if (page === 'upload') loadRecentMeetings();
+    }
+
+    function goPage(page, filter = null) {
+      const tab = document.querySelector(`.nav-tab[onclick*="'${page}'"]`);
+      go(tab, page, filter);
+    }
+
+    async function logIssue() {
+      const form = document.getElementById('page-issues');
+      const name = form.querySelector('input[placeholder="Full name"]').value;
+      const contact = form.querySelector('input[placeholder="Mobile number"]').value;
+      const ward = form.querySelector('input[placeholder*="Ward"]').value;
+      const via = form.querySelector('select').value;
+      const description = form.querySelector('textarea').value;
+
+      if (!description) return alert('Please enter a description');
+
+      const res = await fetchData('/api/complaint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          citizen_name: name,
+          citizen_contact: contact,
+          ward: ward,
+          channel: via,
+          complaint_text: description,
+          date_received: new Date().toISOString().split('T')[0]
+        })
+      });
+
+      if (res) {
+        document.getElementById('submit-confirm').style.display = 'block';
+        setTimeout(() => document.getElementById('submit-confirm').style.display = 'none', 3000);
+        form.querySelectorAll('input').forEach(i => i.value = '');
+        form.querySelector('textarea').value = '';
+        loadTodo();
+      }
+    }
+
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadProfile();
+      loadHome();
+    });
+
+    function showSug() {
+      document.getElementById('sug-results').style.display = 'block';
+    }
+
+    function toggleDigest(btn, type) {
+      document.querySelectorAll('.d-toggle-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('digest-daily').style.display = type === 'daily' ? 'block' : 'none';
+      document.getElementById('digest-weekly').style.display = type === 'weekly' ? 'block' : 'none';
+    }
+
+    function selectType(el) {
+      document.querySelectorAll('.upload-type').forEach(t => t.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function fakeSave() {
+      document.getElementById('save-confirm').style.display = 'block';
+      setTimeout(() => document.getElementById('save-confirm').style.display = 'none', 3000);
+    }
+
+    function fakeInject() {
+      document.getElementById('inject-confirm').style.display = 'block';
+      setTimeout(() => document.getElementById('inject-confirm').style.display = 'none', 3000);
+    }
+
+    function selectCtx(el) {
+      el.closest('.upload-type-row').querySelectorAll('.upload-type').forEach(t => t.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    async function loadRecentMeetings() {
+      const meetings = await fetchData('/api/meetings/recent');
+      if (meetings) {
+        const list = document.querySelector('#page-upload .uploaded-list');
+        if (list) {
+          list.innerHTML = meetings.map(m => `
+            <div class="uploaded-item">
+              <div>
+                <div class="uploaded-name">${m.source_id} — ${m.meeting_date || 'N/A'}</div>
+                <div class="uploaded-meta">${m.commitments} commitments extracted</div>
+              </div>
+              <span class="status-chip done">Processed</span>
+            </div>
+          `).join('');
+        }
+      }
+    }

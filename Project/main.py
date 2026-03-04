@@ -16,6 +16,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Co-Pilot API", lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="Project"), name="static")
 
 # Models
 class ItemCreate(BaseModel):
@@ -52,7 +53,7 @@ def get_digest():
 
 @app.get("/api/todo")
 def get_todo(type: Optional[str] = None, urgency: Optional[str] = None, ward: Optional[str] = None):
-    return digest_engine.get_todo_list(type=type, urgency=urgency, ward=ward)
+    return commitment_engine.get_todo_list(type=type, urgency=urgency, ward=ward)
 
 @app.post("/api/item")
 def add_item(item: ItemCreate):
@@ -109,7 +110,7 @@ def extend_item(item_id: int, req: ExtendRequest):
 
 @app.get("/api/history")
 def get_history(limit: int = 50, offset: int = 0):
-    return digest_engine.get_history(limit=limit, offset=offset)
+    return commitment_engine.get_history(limit=limit, offset=offset)
 
 @app.get("/api/profile")
 def get_profile():
@@ -128,7 +129,7 @@ def get_recent_meetings():
 
 @app.get("/api/stats")
 def get_stats():
-    return digest_engine.get_stats()
+    return commitment_engine.get_stats()
 
 # Serve Frontend
 @app.get("/")

@@ -20,9 +20,14 @@ def get_model():
 
 def get_db():
     db = sqlite3.connect(DB_PATH)
-    db.enable_load_extension(True)
-    sqlite_vec.load(db)
-    db.enable_load_extension(False)
+    try:
+        db.enable_load_extension(True)
+        sqlite_vec.load(db)
+        db.enable_load_extension(False)
+    except AttributeError:
+        # Fallback for systems where enable_load_extension is not available
+        # or sqlite-vec is not needed for basic operations
+        pass
     db.row_factory = sqlite3.Row
     return db
 
