@@ -1,3 +1,9 @@
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text || '';
+      return div.innerHTML;
+    }
+
     async function fetchData(url, options = {}) {
       try {
         const response = await fetch(url, options);
@@ -29,7 +35,7 @@
         document.getElementById('top-user-name').innerText = profile.name;
         document.getElementById('top-user-sub').innerText = `${profile.designation} · ${profile.ward_name}`;
           // Show first name or the only name
-          const nameParts = profile.name.split(' ');
+          const nameParts = (profile.name || '').split(' ');
           const displayName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
           document.getElementById('hero-user-name').innerText = displayName;
         document.getElementById('hero-user-meta').innerText = `${profile.designation} · ${profile.ward_name} · Term since ${profile.term_start}`;
@@ -107,7 +113,7 @@
           } else {
             allItems.slice(0, 4).forEach(item => {
               const overdueText = item.days_overdue > 0 ? `${item.days_overdue}d overdue` : (item.urgency || '');
-              html += `<div class="home-urgent-item"><span class="hui-text">${item.title}</span><span class="hui-tag ${item.urgency === 'critical' ? '' : 'amber'}">${item.ward || 'Gen'} · ${overdueText}</span></div>`;
+            html += `<div class="home-urgent-item"><span class="hui-text">${escapeHtml(item.title)}</span><span class="hui-tag ${item.urgency === 'critical' ? '' : 'amber'}">${escapeHtml(item.ward) || 'Gen'} · ${escapeHtml(overdueText)}</span></div>`;
             });
           }
           todoContainer.innerHTML = html;
@@ -125,8 +131,8 @@
             clusters.slice(0, 4).forEach(c => {
               html += `
                   <div class="home-urgent-item">
-                      <span class="hui-text">${c.summary}</span>
-                      <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
+                  <span class="hui-text">${escapeHtml(c.summary)}</span>
+                  <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${escapeHtml(c.ward)} · ${escapeHtml(c.urgency)}</span>
                   </div>`;
             });
           }
@@ -146,8 +152,8 @@
           clusters.slice(0, 4).forEach(c => {
             html += `
                 <div class="home-urgent-item">
-                    <span class="hui-text">${c.summary}</span>
-                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${c.ward} · ${c.urgency}</span>
+                    <span class="hui-text">${escapeHtml(c.summary)}</span>
+                    <span class="hui-tag ${c.urgency === 'critical' ? '' : 'amber'}">${escapeHtml(c.ward)} · ${escapeHtml(c.urgency)}</span>
                 </div>`;
           });
           container.innerHTML = html;
@@ -247,8 +253,8 @@ async function loadContextFiles() {
       list.innerHTML = files.map(f => `
         <div class="uploaded-item">
           <div>
-            <div class="uploaded-name">${f.label} (${f.filename})</div>
-            <div class="uploaded-meta">${f.category} · ${new Date(f.created_at).toLocaleDateString()}</div>
+            <div class="uploaded-name">${escapeHtml(f.label)} (${escapeHtml(f.filename)})</div>
+            <div class="uploaded-meta">${escapeHtml(f.category)} · ${new Date(f.created_at).toLocaleDateString()}</div>
           </div>
           <span class="status-chip done">Active</span>
         </div>
@@ -262,6 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadHome();
   loadContextFiles();
+  if (document.getElementById('page-issues')) loadRecentComplaints();
 });
 
     async function loadTodo(filter = null) {
@@ -297,12 +304,12 @@ document.addEventListener('DOMContentLoaded', () => {
             section += `
             <div class="todo-item ${className}">
               <div onclick="completeItem(${item.id})">
-                <div class="todo-text">${item.title}</div>
-                <div class="todo-meta">${item.type} · ${item.ward || 'General'}</div>
+                <div class="todo-text">${escapeHtml(item.title)}</div>
+                <div class="todo-meta">${escapeHtml(item.type)} · ${escapeHtml(item.ward) || 'General'}</div>
               </div>
               <div class="todo-right">
-                <span class="tag ${className === 'c' ? 'red' : className === 'u' ? 'amber' : 'blue'}">${item.urgency}</span>
-                ${item.days_overdue > 0 ? `<div class="overdue">▲ ${item.days_overdue} days overdue</div>` : ''}
+                <span class="tag ${className === 'c' ? 'red' : className === 'u' ? 'amber' : 'blue'}">${escapeHtml(item.urgency)}</span>
+                ${item.days_overdue > 0 ? `<div class="overdue">▲ ${escapeHtml(item.days_overdue)} days overdue</div>` : ''}
                 <button class="gen-btn" style="padding:2px 5px;font-size:8px;margin-top:5px" onclick="extendItem(${item.id})">Extend</button>
               </div>
             </div>`;
@@ -380,8 +387,8 @@ async function liveEscalate() {
           activeList.innerHTML = items.map(item => `
             <div class="todo-item n" style="margin-bottom:10px">
               <div>
-                <div class="todo-text">${item.title}</div>
-                <div class="todo-meta">${item.to_whom || ''} · ${item.ward || 'General'} · Deadline: ${item.deadline || 'None'}</div>
+                <div class="todo-text">${escapeHtml(item.title)}</div>
+                <div class="todo-meta">${escapeHtml(item.to_whom) || ''} · ${escapeHtml(item.ward) || 'General'} · Deadline: ${escapeHtml(item.deadline) || 'None'}</div>
               </div>
               <div class="todo-right">
                  <button class="gen-btn" style="padding:4px 8px;font-size:9px" onclick="completeItem(${item.id})">Mark Done</button>
@@ -407,8 +414,8 @@ async function liveEscalate() {
           html += `
             <div class="issue-item closed">
                 <div>
-                    <div class="issue-text">${item.title}</div>
-                    <div class="issue-meta">${item.to_whom || ''} · ${item.ward || 'General'} · Resolved ${item.completed_at ? item.completed_at.split('T')[0] : ''}</div>
+                    <div class="issue-text">${escapeHtml(item.title)}</div>
+                    <div class="issue-meta">${escapeHtml(item.to_whom) || ''} · ${escapeHtml(item.ward) || 'General'} · Resolved ${item.completed_at ? escapeHtml(item.completed_at.split('T')[0]) : ''}</div>
                 </div>
                 <span class="tag green">Resolved</span>
             </div>`;
@@ -477,8 +484,8 @@ async function liveEscalate() {
         content.innerHTML = items.map(item => `
           <div class="issue-item">
             <div>
-              <div class="issue-text" style="color:#fff">${item.title}</div>
-              <div class="issue-meta" style="color:#888">${item.type} · ${item.ward || 'General'} · ${item.deadline || 'No deadline'}</div>
+              <div class="issue-text" style="color:#fff">${escapeHtml(item.title)}</div>
+              <div class="issue-meta" style="color:#888">${escapeHtml(item.type)} · ${escapeHtml(item.ward) || 'General'} · ${escapeHtml(item.deadline) || 'No deadline'}</div>
             </div>
           </div>
         `).join('');
@@ -615,10 +622,10 @@ async function liveEscalate() {
             list.innerHTML = complaints.map(c => `
               <div class="issue-item">
                 <div>
-                  <div class="issue-text">${c.raw_description}</div>
-                  <div class="issue-meta">${c.citizen_name || 'Anonymous'} · ${c.ward || 'General'} · Received ${c.date_received || 'N/A'}</div>
+                  <div class="issue-text">${escapeHtml(c.raw_description)}</div>
+                  <div class="issue-meta">${escapeHtml(c.citizen_name) || 'Anonymous'} · ${escapeHtml(c.ward) || 'General'} · Received ${escapeHtml(c.date_received) || 'N/A'}</div>
                 </div>
-                <span class="tag ${c.status === 'pending' ? 'blue' : 'green'}">${c.status}</span>
+                <span class="tag ${c.status === 'pending' ? 'blue' : 'green'}">${escapeHtml(c.status)}</span>
               </div>
             `).join('');
           }
@@ -627,12 +634,6 @@ async function liveEscalate() {
     }
 
 
-    // Initial load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadProfile();
-      loadHome();
-      if (document.getElementById('page-issues')) loadRecentComplaints();
-    });
 
     function showSug() {
       document.getElementById('sug-results').style.display = 'block';
