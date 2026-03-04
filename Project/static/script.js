@@ -600,6 +600,29 @@ async function liveEscalate() {
         form.querySelectorAll('input').forEach(i => i.value = '');
         form.querySelector('textarea').value = '';
         loadTodo();
+        loadRecentComplaints();
+      }
+    }
+
+    async function loadRecentComplaints() {
+      const complaints = await fetchData('/api/complaints/recent');
+      if (complaints) {
+        const list = document.getElementById('recent-complaints-list');
+        if (list) {
+          if (complaints.length === 0) {
+            list.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No recent entries</div>';
+          } else {
+            list.innerHTML = complaints.map(c => `
+              <div class="issue-item">
+                <div>
+                  <div class="issue-text">${c.raw_description}</div>
+                  <div class="issue-meta">${c.citizen_name || 'Anonymous'} · ${c.ward || 'General'} · Received ${c.date_received || 'N/A'}</div>
+                </div>
+                <span class="tag ${c.status === 'pending' ? 'blue' : 'green'}">${c.status}</span>
+              </div>
+            `).join('');
+          }
+        }
       }
     }
 
@@ -608,6 +631,7 @@ async function liveEscalate() {
     document.addEventListener('DOMContentLoaded', () => {
       loadProfile();
       loadHome();
+      if (document.getElementById('page-issues')) loadRecentComplaints();
     });
 
     function showSug() {
