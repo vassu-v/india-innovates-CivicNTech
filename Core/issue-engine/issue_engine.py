@@ -47,10 +47,14 @@ def get_db():
     try:
         db.enable_load_extension(True)
         sqlite_vec.load(db)
-        db.enable_load_extension(False)
-    except AttributeError:
+    except (AttributeError, sqlite3.OperationalError):
         # Fallback for systems where enable_load_extension is not available
         pass
+    finally:
+        try:
+            db.enable_load_extension(False)
+        except Exception:
+            pass
     db.row_factory = sqlite3.Row
     return db
 
@@ -163,6 +167,7 @@ def process_complaint(complaint_data):
     # 3. Search for similar clusters
     match = None
     max_distance = 1.0 - THRESHOLD
+    normalized_ward = normalize_ward(complaint_data.get('ward'))
 
     if embedding_bytes:
         try:
@@ -171,10 +176,10 @@ def process_complaint(complaint_data):
                 SELECT v.cluster_id, vec_distance_cosine(v.embedding, ?) as distance
                 FROM vec_clusters v
                 INNER JOIN clusters c ON v.cluster_id = c.id
-                WHERE c.ward = ?
+                WHERE REPLACE(REPLACE(LOWER(c.ward), ' ', ''), 'ward', '') IS ?
                 ORDER BY distance ASC
                 LIMIT 1
-            """, (embedding_bytes, complaint_data.get('ward')))
+            """, (embedding_bytes, normalized_ward))
             match = cursor.fetchone()
         except sqlite3.OperationalError:
             # B. Fallback to in-memory similarity if sqlite-vec is missing
@@ -188,8 +193,8 @@ def process_complaint(complaint_data):
                     SELECT c.id, v.embedding
                     FROM clusters c
                     JOIN vec_clusters v ON c.id = v.cluster_id
-                    WHERE c.ward = ?
-                """, (complaint_data.get('ward'),))
+                    WHERE REPLACE(REPLACE(LOWER(c.ward), ' ', ''), 'ward', '') IS ?
+                """, (normalized_ward,))
                 all_clusters = cursor.fetchall()
             else:
                 all_clusters = []
