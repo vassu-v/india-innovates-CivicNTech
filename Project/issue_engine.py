@@ -172,7 +172,7 @@ def process_complaint(complaint_data):
                 SELECT v.cluster_id, vec_distance_cosine(v.embedding, ?) as distance
                 FROM vec_clusters v
                 INNER JOIN clusters c ON v.cluster_id = c.id
-                WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
+                WHERE REPLACE(REPLACE(LOWER(c.ward), ' ', ''), 'ward', '') IS ?
                 ORDER BY distance ASC
                 LIMIT 1
             """, (embedding_bytes, normalized_ward))
@@ -189,7 +189,7 @@ def process_complaint(complaint_data):
                     SELECT c.id, v.embedding 
                     FROM clusters c
                     JOIN vec_clusters v ON c.id = v.cluster_id
-                    WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
+                    WHERE REPLACE(REPLACE(LOWER(c.ward), ' ', ''), 'ward', '') IS ?
                 """, (normalized_ward,))
                 all_clusters = cursor.fetchall()
             else:
