@@ -675,6 +675,24 @@ def update_profile(data):
     conn.commit()
     conn.close()
     return True
+
+def truncate_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    for table in ['timely_items', 'profile', 'context_files']:
+        try:
+            cursor.execute(f"DELETE FROM {table}")
+        except sqlite3.OperationalError:
+            pass
+    # Reset sequences
+    try:
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('timely_items', 'context_files')")
+    except sqlite3.OperationalError:
+        pass
+    conn.commit()
+    conn.close()
+    init_db() # Re-initialize defaults for profile
+
 def get_history(limit=50, offset=0):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

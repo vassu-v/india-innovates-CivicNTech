@@ -1,4 +1,6 @@
 *.db
 *.log
+*.png
 __pycache__/
 .env
+!copilot.db
