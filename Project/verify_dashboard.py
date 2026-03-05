@@ -1,6 +1,9 @@
 from playwright.sync_api import Page, expect, sync_playwright
 import os
 import time
+import datetime
+import sys
+import http.client
 
 # This script performs a comprehensive end-to-end verification of the Co-Pilot Dashboard.
 # It assumes the server is running on http://localhost:8000 and the database has been seeded.
@@ -12,7 +15,9 @@ def test_all_features(page: Page):
     def handle_dialog(dialog):
         print(f"  - Handling dialog: {dialog.type} ('{dialog.message}')")
         if dialog.type == "prompt":
-            dialog.accept("2026-12-31")
+            # Dynamic date (today + 30 days) for extension
+            new_date = (datetime.date.today() + datetime.timedelta(days=30)).isoformat()
+            dialog.accept(new_date)
         else:
             dialog.accept()
 
@@ -118,22 +123,21 @@ def test_all_features(page: Page):
     print("\nVerification complete! Screenshots saved as verify_*.png")
 
 if __name__ == "__main__":
-    with sync_playwright() as p:
-        # Check if server is up
-        import http.client
-        conn = http.client.HTTPConnection("localhost", 8000)
-        try:
-            conn.request("GET", "/")
-            res = conn.getresponse()
-            if res.status != 200:
-                raise Exception(f"Server returned status {res.status}")
-        except Exception as e:
-            print(f"Error: Dashboard server not found at http://localhost:8000. Please start it first.")
-            print(f"  Command: PYTHONPATH=Project python -m uvicorn main:app --app-dir Project --port 8000")
-            exit(1)
-        finally:
-            conn.close()
+    # Check if server is up
+    conn = http.client.HTTPConnection("127.0.0.1", 8000)
+    try:
+        conn.request("GET", "/")
+        res = conn.getresponse()
+        if res.status != 200:
+            raise RuntimeError(f"Server returned status {res.status}")
+    except (OSError, http.client.HTTPException, RuntimeError) as exc:
+        print("Error: Dashboard server not found at http://localhost:8000. Please start it first.")
+        print("  Command: PYTHONPATH=Project python -m uvicorn main:app --app-dir Project --port 8000")
+        sys.exit(1)
+    finally:
+        conn.close()
 
+    with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={'width': 1280, 'height': 800})
         page = context.new_page()
@@ -142,5 +146,6 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"\nVerification failed: {e}")
             page.screenshot(path="verify_error.png")
+            sys.exit(1)
         finally:
             browser.close()

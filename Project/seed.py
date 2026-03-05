@@ -1,8 +1,14 @@
 import commitment_engine
 import issue_engine
 import datetime
+import sys
 
-def seed():
+def seed(reset=False):
+    if reset:
+        print("Resetting databases...")
+        commitment_engine.truncate_db()
+        issue_engine.truncate_db()
+
     print("Initializing databases...")
     commitment_engine.init_db()
     issue_engine.init_db()
@@ -90,4 +96,5 @@ def seed():
     print("Seeding complete!")
 
 if __name__ == "__main__":
-    seed()
+    reset_db = "--reset" in sys.argv
+    seed(reset=reset_db)
