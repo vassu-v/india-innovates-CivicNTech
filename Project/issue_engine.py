@@ -15,9 +15,9 @@ def normalize_ward(ward_str):
     'Ward 8' -> '8', 'ward8' -> '8', 'South Delhi' -> 'southdelhi'
     """
     if not ward_str:
-        return "general"
+        return None
     s = str(ward_str).lower().replace(" ", "").replace("ward", "")
-    return s if s else "general"
+    return s if s else None
 
 def cosine_similarity(v1, v2):
     """Simple in-memory cosine similarity calculation."""
@@ -166,7 +166,7 @@ def process_complaint(complaint_data):
                 SELECT v.cluster_id, vec_distance_cosine(v.embedding, ?) as distance
                 FROM vec_clusters v
                 INNER JOIN clusters c ON v.cluster_id = c.id
-                WHERE LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')) = ?
+                WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
                 ORDER BY distance ASC
                 LIMIT 1
             """, (embedding_bytes, normalized_ward))
@@ -177,7 +177,7 @@ def process_complaint(complaint_data):
                 SELECT c.id, v.embedding 
                 FROM clusters c
                 JOIN vec_clusters v ON c.id = v.cluster_id
-                WHERE LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')) = ?
+                WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
             """, (normalized_ward,))
             all_clusters = cursor.fetchall()
             
