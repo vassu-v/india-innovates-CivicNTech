@@ -1,7 +1,84 @@
+"""
+Rich seed script for Co-Pilot demo.
+Aligned to STORY.md - Shri Rajendra Kumar Verma, Ward 42 South Delhi.
+
+Usage:
+    python Project/seed.py           # Add seed data on top of existing
+    python Project/seed.py --reset   # Wipe everything, seed fresh (use before demo)
+
+Target state after seeding:
+    - 2 critical items (W5/W8)  - overdue 15+ and 10 days
+    - 2 urgent items (W3)       - overdue 5 days
+    - 4 normal items (W1/W2)    - future or barely overdue
+    - 3 completed items         - history page not empty
+    - 1 extended item           - extension_count = 1
+    - 4 complaint clusters      - weights 5, 3, 2, 1
+    - 11 individual complaints  - linked to those clusters
+"""
+
 import commitment_engine
 import issue_engine
 import datetime
+import sqlite3
 import sys
+
+today      = datetime.datetime.now().date()
+_d = lambda days: (today - datetime.timedelta(days=days)).isoformat()
+_f = lambda days: (today + datetime.timedelta(days=days)).isoformat()
+
+# -- helpers ------------------------------------------------------------------
+
+def _add_meeting_item(text, title, item_type, source_id, meeting_date,
+                      deadline, to_whom=None, ward=None):
+    """Add a meeting item with pre-set extracted fields (bypasses Gemini)."""
+    return commitment_engine.add_item({
+        "text": text,
+        "type": item_type,
+        "source_id": source_id,
+        "meeting_date": meeting_date,
+        "_extracted": {
+            "title": title,
+            "type": item_type,
+            "to_whom": to_whom,
+            "ward": ward,
+            "deadline": deadline,
+        }
+    })
+
+
+def _backdate_completion(item_id, completed_date_str, resolution_notes="Resolved."):
+    """
+    Mark an item completed with a specific backdated timestamp.
+    complete_item() always uses now(), so we patch via SQL after.
+    """
+    conn = sqlite3.connect(commitment_engine.DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        """UPDATE timely_items
+           SET status='completed', completed_at=?, resolution_notes=?, injected_to_rag=TRUE
+           WHERE id=?""",
+        (completed_date_str + "T10:00:00", resolution_notes, item_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def _log_complaint(citizen_name, ward, channel, text, date_received):
+    """Log a complaint through the full issue engine pipeline."""
+    cluster_res = issue_engine.process_complaint({
+        "citizen_name": citizen_name,
+        "citizen_contact": None,
+        "ward": ward,
+        "channel": channel,
+        "complaint_text": text,
+        "date_received": date_received,
+        "staff_notes": None,
+    })
+    commitment_engine.add_item(cluster_res)
+    return cluster_res
+
+
+# -- main seed ----------------------------------------------------------------
 
 def seed(reset=False):
     if reset:
@@ -9,91 +86,287 @@ def seed(reset=False):
         commitment_engine.truncate_db()
         issue_engine.truncate_db()
 
-    print("Initializing databases...")
+    print("Initialising databases...")
     commitment_engine.init_db()
     issue_engine.init_db()
 
-    print("Seeding MLA profile...")
-    # Profile is initialized with defaults in init_db, but let's update it to be sure
+    # -- PROFILE --------------------------------------------------------------
+    print("Setting MLA profile...")
     commitment_engine.update_profile({
-        "name": "Shri Rajendra Kumar Verma",
-        "party": "Indian National Congress",
-        "designation": "MLA",
-        "ward_name": "Ward 42 — South Delhi"
+        "name":              "Shri Rajendra Kumar Verma",
+        "party":             "Indian National Congress",
+        "designation":       "MLA",
+        "term_start":        "2024",
+        "email":             "rajendra.verma@mla.delhi.gov.in",
+        "contact":           "+91-11-XXXXXXXX",
+        "ward_name":         "Ward 42 - South Delhi",
+        "state":             "Delhi",
+        "district":          "South Delhi",
+        "wards_covered":     "6",
+        "population":        "2,70,000",
+        "registered_voters": "1,82,400",
+        "office_address":    "Plot 12, Sector 4, Ward 42, South Delhi - 110044",
+        "janata_darbar_day":  "Wednesday",
+        "janata_darbar_time": "10:00 AM – 1:00 PM",
+        "pa_name":           "Suresh Yadav",
+        "pa_contact":        "+91-98XXXXXXXX",
+        "manager_name":      "Priya Sharma",
+        "manager_contact":   "+91-99XXXXXXXX",
     })
 
-    print("Seeding commitments and actions...")
-    today = datetime.datetime.now().date().isoformat()
-    past_date = (datetime.datetime.now() - datetime.timedelta(days=10)).date().isoformat()
+    # -- PENDING - CRITICAL (will escalate to W8 / W5) ------------------------
+    print("Seeding critical overdue items...")
 
-    # 1. A critical overdue commitment
-    commitment_engine.add_item({
-        "text": "Fix the broken streetlights in Sector 4",
-        "type": "commitment",
-        "meeting_date": past_date,
-        "source_id": "meeting_transcript_feb_20.txt"
-    })
+    # W8 - 16 days overdue - flagship issue
+    _add_meeting_item(
+        text        = "I will follow up with PWD on Ward 42 pre-monsoon drain cleaning by February 10th.",
+        title       = "Follow up with PWD - Ward 42 drain cleaning",
+        item_type   = "commitment",
+        source_id   = "ward_coord_jan15.txt",
+        meeting_date= _d(23),
+        deadline    = _d(16),
+        to_whom     = "PWD",
+        ward        = "Ward 42",
+    )
 
-    # 2. A normal pending action
-    commitment_engine.add_item({
-        "text": "Review the budget for monsoon preparation",
-        "type": "action",
-        "meeting_date": today,
-        "source_id": "manual"
-    })
+    # W5 - 10 days overdue
+    _add_meeting_item(
+        text        = "I will take up street light outage in Ward 17 Sector 4 with MCD within this week.",
+        title       = "Escalate Ward 17 Sector 4 street light outage to MCD",
+        item_type   = "commitment",
+        source_id   = "ward_coord_jan15.txt",
+        meeting_date= _d(17),
+        deadline    = _d(10),
+        to_whom     = "MCD",
+        ward        = "Ward 17",
+    )
 
-    # 3. A question
-    commitment_engine.add_item({
-        "text": "Status of the new park construction in Ward 42?",
-        "type": "question",
-        "meeting_date": today,
-        "source_id": "meeting_transcript_today.txt"
-    })
+    # -- PENDING - URGENT (will escalate to W3) -------------------------------
+    print("Seeding urgent items...")
 
-    print("Seeding citizen complaints...")
-    complaints = [
-        {
-            "citizen_name": "Amit Shah",
-            "citizen_contact": "9876543210",
-            "ward": "Ward 42",
-            "channel": "Walk-in visit",
-            "complaint_text": "Severe water logging in front of my house due to blocked drains.",
-            "date_received": today
-        },
-        {
-            "citizen_name": "Sita Ram",
-            "citizen_contact": "9123456789",
-            "ward": "Ward 42",
-            "channel": "Physical letter",
-            "complaint_text": "The drains in Sector 4 are completely blocked and causing overflow.",
-            "date_received": today
-        },
-        {
-            "citizen_name": "John Doe",
-            "citizen_contact": "8888888888",
-            "ward": "Ward 8",
-            "channel": "CPGRAMS portal",
-            "complaint_text": "Garbage collection has not happened for 3 days in our area.",
-            "date_received": today
-        }
-    ]
+    # 5 days overdue
+    _add_meeting_item(
+        text        = "I will ask PWD to inspect Ward 17 market road and give repair timeline by January 22nd.",
+        title       = "PWD inspection - Ward 17 market road repair timeline",
+        item_type   = "commitment",
+        source_id   = "ward_coord_jan15.txt",
+        meeting_date= _d(12),
+        deadline    = _d(5),
+        to_whom     = "PWD",
+        ward        = "Ward 17",
+    )
 
-    for comp in complaints:
-        # Cluster via Issue Engine
-        cluster_res = issue_engine.process_complaint(comp)
-        # Add to Commitment Engine to show in To-Do
-        commitment_engine.add_item(cluster_res)
+    # 4 days overdue
+    _add_meeting_item(
+        text        = "Schedule a DJB review for water pressure issues in Ward 23 Block C.",
+        title       = "DJB review - Ward 23 water pressure",
+        item_type   = "action",
+        source_id   = "pwd_meeting_feb10.txt",
+        meeting_date= _d(11),
+        deadline    = _d(4),
+        to_whom     = "DJB",
+        ward        = "Ward 23",
+    )
 
-    print("Seeding completed items for history...")
-    item_id = commitment_engine.add_item({
-        "text": "Send thank you note to the residents of Ward 42",
-        "type": "action",
-        "meeting_date": past_date,
-        "source_id": "manual"
-    })
-    commitment_engine.complete_item(item_id, "Sent successfully via email.")
+    # -- PENDING - NORMAL (future or barely overdue) ---------------------------
+    print("Seeding normal pending items...")
 
-    print("Seeding complete!")
+    # Due in 5 days
+    _add_meeting_item(
+        text        = "Check PM Awas Yojana eligibility for 340 Ward 8 residents and prepare camp visit.",
+        title       = "PM Awas eligibility check - Ward 8 camp visit prep",
+        item_type   = "question",
+        source_id   = "janata_darbar_feb25.txt",
+        meeting_date= _d(8),
+        deadline    = _f(5),
+        to_whom     = "Revenue",
+        ward        = "Ward 8",
+    )
+
+    # Due in 9 days
+    _add_meeting_item(
+        text        = "Coordinate with MCD on encroachment removal at Ward 3 community park entrance.",
+        title       = "MCD coordination - Ward 3 park encroachment",
+        item_type   = "commitment",
+        source_id   = "dm_meeting_feb22.txt",
+        meeting_date= _d(5),
+        deadline    = _f(9),
+        to_whom     = "MCD",
+        ward        = "Ward 3",
+    )
+
+    # Due in 14 days
+    _add_meeting_item(
+        text        = "Review school infrastructure report for Ward 6 and respond to Education department.",
+        title       = "Review Ward 6 school infrastructure report",
+        item_type   = "action",
+        source_id   = "dm_meeting_feb22.txt",
+        meeting_date= _d(3),
+        deadline    = _f(14),
+        to_whom     = "Education",
+        ward        = "Ward 6",
+    )
+
+    # Due in 21 days
+    _add_meeting_item(
+        text        = "Arrange sanitation inspection for Ward 31 migrant worker settlements before summer.",
+        title       = "Ward 31 sanitation inspection - migrant settlements",
+        item_type   = "commitment",
+        source_id   = "janata_darbar_feb25.txt",
+        meeting_date= _d(2),
+        deadline    = _f(21),
+        to_whom     = "MCD",
+        ward        = "Ward 31",
+    )
+
+    # -- COMPLETED - backdated so history is populated -------------------------
+    print("Seeding completed items...")
+
+    # Completed on time - Commissioner Singh escalation worked
+    id1 = _add_meeting_item(
+        text        = "Direct call to Commissioner Singh re: Ward 42 road repair after department routing failed.",
+        title       = "Direct escalation to Commissioner Singh - Ward 42 road repair",
+        item_type   = "commitment",
+        source_id   = "ward_coord_jan15.txt",
+        meeting_date= _d(40),
+        deadline    = _d(33),
+        to_whom     = "Commissioner Singh",
+        ward        = "Ward 42",
+    )
+    _backdate_completion(id1, _d(34),
+        "Contacted Commissioner Singh directly. PWD team deputed within 48 hours. Road repaired.")
+
+    # Completed on time - DJB water complaint resolved
+    id2 = _add_meeting_item(
+        text        = "Follow up with DJB on water supply disruption in Ward 8.",
+        title       = "DJB follow-up - Ward 8 water supply disruption",
+        item_type   = "commitment",
+        source_id   = "pwd_meeting_feb10.txt",
+        meeting_date= _d(30),
+        deadline    = _d(23),
+        to_whom     = "DJB",
+        ward        = "Ward 8",
+    )
+    _backdate_completion(id2, _d(25),
+        "DJB restored supply within 2 days. Citizen confirmed resolution at next Janata Darbar.")
+
+    # Completed late - extended once, still eventually done
+    id3 = _add_meeting_item(
+        text        = "Send written response to RWA Ward 3 on park maintenance schedule.",
+        title       = "Written response to RWA Ward 3 - park maintenance",
+        item_type   = "action",
+        source_id   = "dm_meeting_feb22.txt",
+        meeting_date= _d(45),
+        deadline    = _d(38),
+        to_whom     = "RWA Ward 3",
+        ward        = "Ward 3",
+    )
+    # Extend it first, then complete late
+    commitment_engine.extend_item(id3, _d(28))
+    _backdate_completion(id3, _d(20),
+        "Letter drafted and dispatched. Park cleaning scheduled for first Saturday of each month.")
+
+    # -- EXTENDED PENDING - one item with extension_count = 1 -----------------
+    print("Seeding extended item...")
+
+    id4 = _add_meeting_item(
+        text        = "Inspect Ward 11 drainage network before monsoon season and submit report to PWD.",
+        title       = "Ward 11 drainage inspection before monsoon",
+        item_type   = "commitment",
+        source_id   = "pwd_meeting_feb10.txt",
+        meeting_date= _d(20),
+        deadline    = _d(13),    # was overdue
+        to_whom     = "PWD",
+        ward        = "Ward 11",
+    )
+    # Extend to a future date - resets weight to 1
+    commitment_engine.extend_item(id4, _f(7))
+
+    # -- COMPLAINT CLUSTERS - built up via real embeddings --------------------
+    print("Seeding complaint clusters (running embeddings - takes ~30s)...")
+
+    # CLUSTER A - Ward 42 drainage - 5 complaints → weight 5, critical
+    print("  Cluster A: Ward 42 drainage...")
+    _log_complaint("Ramesh Kumar",   "Ward 42", "Walk-in visit",
+        "Nala near plot 34 is completely blocked. Water overflowing into homes during rain.",
+        _d(14))
+    _log_complaint("Geeta Bai",      "Ward 42", "Physical letter",
+        "Drain behind our colony wall has not been cleaned for months. Flooding every time it rains.",
+        _d(10))
+    _log_complaint("Abdul Rehman",   "Ward 42", "Walk-in visit",
+        "Sewage drain overflow on main road Ward 42. Very bad smell and health risk for children.",
+        _d(7))
+    _log_complaint("Priya Singh",    "Ward 42", "CPGRAMS portal",
+        "Water logging due to blocked storm drain. Reported three times already, no action taken.",
+        _d(4))
+    _log_complaint("Mohan Lal",      "Ward 42", "Walk-in visit",
+        "Canal drain overflow near school. Parents afraid to send children. Please act urgently.",
+        _d(2))
+
+    # CLUSTER B - Ward 17 street lights - 3 complaints → weight 3, urgent
+    print("  Cluster B: Ward 17 street lights...")
+    _log_complaint("Sunita Devi",    "Ward 17", "Physical letter",
+        "Three street lights outside primary school in Sector 4 not working for two weeks.",
+        _d(9))
+    _log_complaint("RWA Sector 4",   "Ward 17", "Walk-in visit",
+        "Street light poles in Sector 4 near school gate dark since last month. Children unsafe.",
+        _d(6))
+    _log_complaint("Kishore Lal",    "Ward 17", "State grievance portal",
+        "No street lighting on main road Ward 17 after 7pm. Two accidents already happened.",
+        _d(3))
+
+    # CLUSTER C - Ward 8 water supply - 2 complaints → weight 2, normal
+    print("  Cluster C: Ward 8 water supply...")
+    _log_complaint("Deepa Sharma",   "Ward 8",  "CPGRAMS portal",
+        "Water supply completely cut in Block C Ward 8 for three days. Elderly woman alone at home.",
+        _d(5))
+    _log_complaint("Suresh Gupta",   "Ward 8",  "Walk-in visit",
+        "DJB water tanker not coming to Ward 8 sector B. No water supply since Monday.",
+        _d(3))
+
+    # CLUSTER D - Ward 3 encroachment - 1 complaint → weight 1, normal
+    print("  Cluster D: Ward 3 encroachment...")
+    _log_complaint("RWA Ward 3",     "Ward 3",  "Walk-in visit",
+        "Illegal shop encroaching on community park entrance. Park access blocked for residents.",
+        _d(8))
+
+    # -- ESCALATE - ensure weights reflect overdue days correctly --------------
+    print("Running escalation to set correct weights...")
+    commitment_engine.escalate()
+
+    # -- SUMMARY --------------------------------------------------------------
+    conn = sqlite3.connect(commitment_engine.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    cur.execute("SELECT urgency, COUNT(*) as c FROM timely_items WHERE status='pending' GROUP BY urgency")
+    urgency = {r["urgency"]: r["c"] for r in cur.fetchall()}
+
+    cur.execute("SELECT COUNT(*) as c FROM timely_items WHERE status='completed'")
+    completed = cur.fetchone()["c"]
+
+    cur.execute("SELECT COUNT(*) as c FROM timely_items WHERE extension_count > 0")
+    extended = cur.fetchone()["c"]
+
+    cur.execute("SELECT COUNT(*) as c FROM clusters")
+    clusters = cur.fetchone()["c"]
+
+    cur.execute("SELECT COUNT(*) as c FROM complaints")
+    complaints = cur.fetchone()["c"]
+
+    conn.close()
+
+    print("\n-- Seed complete ----------------------------------")
+    print(f"  Critical pending : {urgency.get('critical', 0)}")
+    print(f"  Urgent pending   : {urgency.get('urgent', 0)}")
+    print(f"  Normal pending   : {urgency.get('normal', 0)}")
+    print(f"  Completed        : {completed}")
+    print(f"  Extended items   : {extended}")
+    print(f"  Complaint clusters: {clusters}")
+    print(f"  Individual complaints: {complaints}")
+    print("---------------------------------------------------")
+    print("Dashboard at http://localhost:8000 should look alive.")
+
 
 if __name__ == "__main__":
     reset_db = "--reset" in sys.argv

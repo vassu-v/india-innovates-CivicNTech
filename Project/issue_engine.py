@@ -7,7 +7,7 @@ import os
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "copilot.db")
 MODEL_NAME = "all-MiniLM-L6-v2"
-THRESHOLD = 0.5 # Cosine similarity threshold (1.0 - distance). Lower is more flexible
+THRESHOLD = 0.35 # Cosine similarity threshold (1.0 - distance). Lower is more flexible
 
 def normalize_ward(ward_str):
     """
