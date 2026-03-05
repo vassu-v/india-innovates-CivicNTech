@@ -50,13 +50,12 @@ def get_db():
         db.enable_load_extension(False)
     except AttributeError:
         # Fallback for systems where enable_load_extension is not available
-        # or sqlite-vec is not needed for basic operations
         pass
     db.row_factory = sqlite3.Row
     return db
 
 def serialize_f32(vector):
-    """serializes a list of floats into a compact format sqlite-vec expects"""
+    """serializes a list of floats into a format sqlite-vec expects"""
     return struct.pack(f"{len(vector)}f", *vector)
 
 def init_db():
@@ -103,7 +102,13 @@ def init_db():
         )
         """)
     except sqlite3.OperationalError:
-        print("Warning: sqlite-vec not available. Vector features will be limited.")
+        print("Warning: sqlite-vec not available. Using normal table for embeddings fallback.")
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS vec_clusters (
+            cluster_id INTEGER PRIMARY KEY,
+            embedding BLOB
+        )
+        """)
     db.commit()
     db.close()
 
@@ -174,9 +179,9 @@ def process_complaint(complaint_data):
             match = cursor.fetchone()
         except sqlite3.OperationalError:
             # B. Fallback to in-memory similarity if sqlite-vec is missing
-            # Check if the virtual table exists before trying to JOIN it
+            # Check if vec_clusters table exists (virtual or real)
             vec_table_exists = cursor.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='vec_clusters'"
+                "SELECT 1 FROM sqlite_master WHERE type IN ('table', 'virtual') AND name='vec_clusters'"
             ).fetchone()
             
             if vec_table_exists:
@@ -195,7 +200,9 @@ def process_complaint(complaint_data):
             
             if all_clusters:
                 current_v = embedding.tolist()
-                for cluster_id, eb in all_clusters:
+                for row in all_clusters:
+                    cluster_id = row['id']
+                    eb = row['embedding']
                     if eb:
                         cluster_v = struct.unpack(f"{len(current_v)}f", eb)
                         sim = cosine_similarity(current_v, cluster_v)
@@ -213,56 +220,31 @@ def process_complaint(complaint_data):
     urgency = "normal"
     
     if match and match['distance'] <= max_distance:
-        # 5A - Similar found
         target_cluster_id = match['cluster_id']
-        
-        # update cluster weight & summary
         cursor.execute("SELECT summary, weight FROM clusters WHERE id = ?", (target_cluster_id,))
         cluster_row = cursor.fetchone()
-        
-        current_summary = cluster_row['summary']
-        target_summary = current_summary
+        target_summary = cluster_row['summary']
         if match['distance'] > 0.15 and len(target_summary) < 150:
             addition = text[:50].strip()
             if addition.lower() not in target_summary.lower():
                 target_summary += " | " + addition
-                
         new_weight = cluster_row['weight'] + 1
         urgency = determine_urgency(new_weight)
-        
-        cursor.execute("""
-            UPDATE clusters 
-            SET weight = ?, urgency = ?, summary = ?
-            WHERE id = ?
-        """, (new_weight, urgency, target_summary, target_cluster_id))
-        
+        cursor.execute("UPDATE clusters SET weight = ?, urgency = ?, summary = ? WHERE id = ?", (new_weight, urgency, target_summary, target_cluster_id))
         action = "added_to_existing"
     else:
-        # 5B - New issue
         target_summary = text[:100] + "..." if len(text) > 100 else text
-        cursor.execute("""
-            INSERT INTO clusters (summary, ward, weight, urgency, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (target_summary, complaint_data.get('ward'), 1, "normal", now))
-        
+        cursor.execute("INSERT INTO clusters (summary, ward, weight, urgency, created_at) VALUES (?, ?, ?, ?, ?)", (target_summary, complaint_data.get('ward'), 1, "normal", now))
         target_cluster_id = cursor.lastrowid
-        
         if embedding_bytes:
+            # We already know if vec_clusters is virtual or real, INSERT works the same for both
             try:
-                cursor.execute("""
-                    INSERT INTO vec_clusters (cluster_id, embedding)
-                    VALUES (?, ?)
-                """, (target_cluster_id, embedding_bytes))
+                cursor.execute("INSERT INTO vec_clusters (cluster_id, embedding) VALUES (?, ?)", (target_cluster_id, embedding_bytes))
             except sqlite3.OperationalError:
                 pass
-        
         action = "new_cluster_created"
         
-    # Link complaint to cluster
-    cursor.execute("""
-        UPDATE complaints SET cluster_id = ? WHERE id = ?
-    """, (target_cluster_id, complaint_id))
-    
+    cursor.execute("UPDATE complaints SET cluster_id = ? WHERE id = ?", (target_cluster_id, complaint_id))
     db.commit()
     db.close()
     
@@ -274,6 +256,20 @@ def process_complaint(complaint_data):
         "urgency": urgency,
         "complaint_id": complaint_id
     }
+
+def truncate_db():
+    db = get_db()
+    cursor = db.cursor()
+    cursor.execute("DELETE FROM complaints")
+    cursor.execute("DELETE FROM clusters")
+    try:
+        cursor.execute("DELETE FROM vec_clusters")
+    except sqlite3.OperationalError:
+        pass
+    # Reset sequences
+    cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('complaints', 'clusters')")
+    db.commit()
+    db.close()
 
 def get_recent_complaints(limit=5):
     db = get_db()
