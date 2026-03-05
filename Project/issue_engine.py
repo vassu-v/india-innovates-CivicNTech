@@ -47,10 +47,14 @@ def get_db():
     try:
         db.enable_load_extension(True)
         sqlite_vec.load(db)
-        db.enable_load_extension(False)
-    except AttributeError:
+    except (AttributeError, sqlite3.OperationalError):
         # Fallback for systems where enable_load_extension is not available
         pass
+    finally:
+        try:
+            db.enable_load_extension(False)
+        except Exception:
+            pass
     db.row_factory = sqlite3.Row
     return db
 
