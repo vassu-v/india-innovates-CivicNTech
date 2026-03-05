@@ -1,3 +1,7 @@
-fastapi 
-uvicorn 
+fastapi
+uvicorn
 python-multipart
+google-genai
+python-dotenv
+sentence-transformers
+sqlite-vec

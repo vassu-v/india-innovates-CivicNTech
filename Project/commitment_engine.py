@@ -130,7 +130,7 @@ Deadline inference rules if not explicit:
   action     -> 5 days from meeting date
 """
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3-flash-preview',
             contents=prompt,
         )
         raw = response.text.strip()
@@ -245,7 +245,14 @@ No explanation. No markdown. No backticks. Just the JSON array.
                 "text": item["title"],
                 "type": item["type"],
                 "source_id": source_id,
-                "meeting_date": meeting_date
+                "meeting_date": meeting_date,
+                "_extracted": {
+                    "title": item["title"],
+                    "type": item["type"],
+                    "to_whom": None,
+                    "ward": None,
+                    "deadline": _infer_deadline(meeting_date, item["type"]),
+                }
             })
             count += 1
         return count

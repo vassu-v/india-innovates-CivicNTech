@@ -22,9 +22,10 @@ def normalize_ward(ward_str):
 def cosine_similarity(v1, v2):
     """Simple in-memory cosine similarity calculation."""
     import math
+    if len(v1) != len(v2):
+        raise ValueError(f"Vector length mismatch: {len(v1)} vs {len(v2)}")
     sumxx, sumyy, sumxy = 0, 0, 0
-    for i in range(len(v1)):
-        x = v1[i]; y = v2[i]
+    for x, y in zip(v1, v2):
         sumxx += x*x
         sumyy += y*y
         sumxy += x*y
@@ -173,13 +174,21 @@ def process_complaint(complaint_data):
             match = cursor.fetchone()
         except sqlite3.OperationalError:
             # B. Fallback to in-memory similarity if sqlite-vec is missing
-            cursor.execute("""
-                SELECT c.id, v.embedding 
-                FROM clusters c
-                JOIN vec_clusters v ON c.id = v.cluster_id
-                WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
-            """, (normalized_ward,))
-            all_clusters = cursor.fetchall()
+            # Check if the virtual table exists before trying to JOIN it
+            vec_table_exists = cursor.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='vec_clusters'"
+            ).fetchone()
+            
+            if vec_table_exists:
+                cursor.execute("""
+                    SELECT c.id, v.embedding 
+                    FROM clusters c
+                    JOIN vec_clusters v ON c.id = v.cluster_id
+                    WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
+                """, (normalized_ward,))
+                all_clusters = cursor.fetchall()
+            else:
+                all_clusters = []
             
             best_sim = -1
             best_id = None
