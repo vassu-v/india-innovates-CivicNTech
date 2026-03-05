@@ -9,6 +9,30 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "copilot.db")
 MODEL_NAME = "all-MiniLM-L6-v2"
 THRESHOLD = 0.5 # Cosine similarity threshold (1.0 - distance). Lower is more flexible
 
+def normalize_ward(ward_str):
+    """
+    Normalizes ward string: lowercase, remove spaces, extract number if possible.
+    'Ward 8' -> '8', 'ward8' -> '8', 'South Delhi' -> 'southdelhi'
+    """
+    if not ward_str:
+        return None
+    s = str(ward_str).lower().replace(" ", "").replace("ward", "")
+    return s if s else None
+
+def cosine_similarity(v1, v2):
+    """Simple in-memory cosine similarity calculation."""
+    import math
+    if len(v1) != len(v2):
+        raise ValueError(f"Vector length mismatch: {len(v1)} vs {len(v2)}")
+    sumxx, sumyy, sumxy = 0, 0, 0
+    for x, y in zip(v1, v2):
+        sumxx += x*x
+        sumyy += y*y
+        sumxy += x*y
+    if sumxx == 0 or sumyy == 0:
+        return 0
+    return sumxy / (math.sqrt(sumxx) * math.sqrt(sumyy))
+
 # Load model lazily
 _model = None
 def get_model():
@@ -131,25 +155,56 @@ def process_complaint(complaint_data):
     ))
     complaint_id = cursor.lastrowid
     
-    # 3. Search for similar clusters using cosine distance
+    # 3. Search for similar clusters
     match = None
+    max_distance = 1.0 - THRESHOLD
+    normalized_ward = normalize_ward(complaint_data.get('ward'))
+
     if embedding_bytes:
         try:
-            # sqlite-vec distance_cosine: 0.0=identical, 2.0=opposite.
-            max_distance = 1.0 - THRESHOLD
-
+            # A. Try sqlite-vec first
             cursor.execute("""
                 SELECT v.cluster_id, vec_distance_cosine(v.embedding, ?) as distance
                 FROM vec_clusters v
                 INNER JOIN clusters c ON v.cluster_id = c.id
-                WHERE c.ward = ?
+                WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
                 ORDER BY distance ASC
                 LIMIT 1
-            """, (embedding_bytes, complaint_data.get('ward')))
-
+            """, (embedding_bytes, normalized_ward))
             match = cursor.fetchone()
         except sqlite3.OperationalError:
-            pass # vec_clusters or vec_distance_cosine not available
+            # B. Fallback to in-memory similarity if sqlite-vec is missing
+            # Check if the virtual table exists before trying to JOIN it
+            vec_table_exists = cursor.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='vec_clusters'"
+            ).fetchone()
+            
+            if vec_table_exists:
+                cursor.execute("""
+                    SELECT c.id, v.embedding 
+                    FROM clusters c
+                    JOIN vec_clusters v ON c.id = v.cluster_id
+                    WHERE NULLIF(LOWER(REPLACE(REPLACE(c.ward, ' ', ''), 'ward', '')), '') IS ?
+                """, (normalized_ward,))
+                all_clusters = cursor.fetchall()
+            else:
+                all_clusters = []
+            
+            best_sim = -1
+            best_id = None
+            
+            if all_clusters:
+                current_v = embedding.tolist()
+                for cluster_id, eb in all_clusters:
+                    if eb:
+                        cluster_v = struct.unpack(f"{len(current_v)}f", eb)
+                        sim = cosine_similarity(current_v, cluster_v)
+                        if sim > best_sim:
+                            best_sim = sim
+                            best_id = cluster_id
+            
+            if best_id and best_sim >= THRESHOLD:
+                match = {'cluster_id': best_id, 'distance': 1.0 - best_sim}
         
     action = ""
     target_cluster_id = None
@@ -166,10 +221,6 @@ def process_complaint(complaint_data):
         cluster_row = cursor.fetchone()
         
         current_summary = cluster_row['summary']
-        
-        # Only update summary if the new complaint adds structural or semantic new context.
-        # We use the distance score as a heuristic: if distance > 0.15, it's phrased differently 
-        # enough (or has new keywords) to justify appending it to the summary.
         target_summary = current_summary
         if match['distance'] > 0.15 and len(target_summary) < 150:
             addition = text[:50].strip()
@@ -188,8 +239,7 @@ def process_complaint(complaint_data):
         action = "added_to_existing"
     else:
         # 5B - New issue
-        # Create new cluster
-        target_summary = text[:100] + "..." if len(text) > 100 else text # simple summary
+        target_summary = text[:100] + "..." if len(text) > 100 else text
         cursor.execute("""
             INSERT INTO clusters (summary, ward, weight, urgency, created_at)
             VALUES (?, ?, ?, ?, ?)
@@ -197,7 +247,6 @@ def process_complaint(complaint_data):
         
         target_cluster_id = cursor.lastrowid
         
-        # Store embedding if possible
         if embedding_bytes:
             try:
                 cursor.execute("""
