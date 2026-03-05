@@ -65,16 +65,38 @@ Gemini is only needed for meeting transcript extraction. Everything else runs wi
 
 ## Running
 
+### 1. Seed the database
+Populate the database with sample MLA profile, commitments, and citizen complaints.
 ```bash
-# Seed sample data (first time)
-python Project/seed.py
-
-# Start server
-python -m uvicorn Project.main:app --reload
-
-# Open dashboard
-http://localhost:8000
+PYTHONPATH=Project python Project/seed.py
 ```
+
+### 2. Start the server
+```bash
+PYTHONPATH=Project python -m uvicorn main:app --app-dir Project --port 8000
+```
+
+### 3. Open the dashboard
+Visit [http://localhost:8000](http://localhost:8000) in your browser.
+
+---
+
+## Verification
+
+To verify that all features are connected and working correctly (backend + frontend), you can run the automated Playwright verification script.
+
+### 1. Install Playwright (if not already installed)
+```bash
+pip install playwright
+playwright install chromium
+```
+
+### 2. Run verification
+Ensure the server is running in a separate terminal, then execute:
+```bash
+python Project/verify_dashboard.py
+```
+This script will navigate through all major pages, perform actions (like completing/extending items, logging complaints, and updating profile), and save screenshots as `verify_*.png`.
 
 ---
 

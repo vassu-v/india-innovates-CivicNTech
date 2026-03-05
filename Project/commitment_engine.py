@@ -675,6 +675,19 @@ def update_profile(data):
     conn.commit()
     conn.close()
     return True
+
+def truncate_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM timely_items")
+    cursor.execute("DELETE FROM profile")
+    cursor.execute("DELETE FROM context_files")
+    # Reset sequences
+    cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('timely_items', 'context_files')")
+    conn.commit()
+    conn.close()
+    init_db() # Re-initialize defaults for profile
+
 def get_history(limit=50, offset=0):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
