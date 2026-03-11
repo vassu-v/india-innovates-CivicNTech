@@ -244,6 +244,8 @@ The intelligence core — the brain of SarkarSathi — is fully operational.
 
 An earlier version of SarkarSathi is accessible online.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-online-brightgreen?logo=render&logoColor=white)]([https://your-deployment-url-here](https://india-innovates-civic-n-tech--truckcoding.replit.app/))
+
 > **Note:** The live deployment reflects an earlier build of the system. It does not include several features present in the current codebase — including the enriched seed data, ward normalisation, recent complaints feed, and various stability improvements made since that deployment. Gemini API extraction is not active in the live deployment. The deployment is provided for reference and to demonstrate the dashboard interface. For the full current system, run locally using the instructions below.
 
 ---
