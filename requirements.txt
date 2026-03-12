@@ -1,0 +1,26 @@
+# RAGCore — Python dependencies
+# ─────────────────────────────
+# Install:  pip install -r requirements.txt
+#
+# First run downloads model weights (~1.5 GB total).
+# Subsequent runs load from local cache.
+
+# Embeddings + reranking
+sentence-transformers>=2.7.0
+
+# Transformer models (QA, summarisation)
+transformers>=4.40.0
+torch>=2.2.0
+
+# Vector store
+chromadb>=0.5.0
+
+# PDF parsing
+PyPDF2>=3.0.0
+
+# Utilities
+numpy>=1.26.0
+tqdm>=4.66.0
+
+# Testing
+pytest>=8.0.0
