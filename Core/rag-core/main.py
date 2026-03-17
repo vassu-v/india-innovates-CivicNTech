@@ -26,7 +26,7 @@ import logging
 import sys
 import textwrap
 
-from src.engine import PipelineConfig, RAGPipeline
+from engine import PipelineConfig, RAGPipeline
 
 logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
