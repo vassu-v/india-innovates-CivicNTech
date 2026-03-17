@@ -59,16 +59,17 @@ def cmd_index(args, pipeline: RAGPipeline):
 
 
 def cmd_summarise(args, pipeline: RAGPipeline):
-    print(f"\n  Summarising: {args.file}")
     result = pipeline.summarise(args.file)
+    if args.json:
+        print(json.dumps(result.__dict__, indent=2))
+        return
+
+    print(f"\n  Summarising: {args.file}")
     print(f"\n{DIVIDER}")
     _print("Source:", result.source)
     _print("Summary:", result.summary)
     print(f"  {'Time:':<12} {result.latency_ms:.0f} ms")
     print(f"{DIVIDER}\n")
-
-    if args.json:
-        print(json.dumps(result.__dict__, indent=2))
 
 
 def cmd_query(args, pipeline: RAGPipeline):
@@ -149,9 +150,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main():
-    print(BANNER)
     parser = build_parser()
     args = parser.parse_args()
+
+    json_mode = getattr(args, "json", False)
+    if not json_mode and args.cmd != "chat":
+        print(BANNER)
+    elif args.cmd == "chat":
+        print(BANNER)
 
     cfg = PipelineConfig()
     pipeline = RAGPipeline(cfg)
