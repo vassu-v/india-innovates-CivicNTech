@@ -706,6 +706,9 @@ async function loadRecentMeetings() {
     }
   }
 }
+
+let currentWorkingMemory = [];
+
 async function sendChat() {
   const input = document.querySelector('.chat-input');
   const log = document.querySelector('.chat-log');
@@ -737,16 +740,26 @@ async function sendChat() {
   const res = await fetchData('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query })
+    body: JSON.stringify({
+      query: query,
+      working_memory: currentWorkingMemory
+    })
   });
 
   if (res) {
+    // Update working memory for next turn
+    if (res.working_memory) {
+      currentWorkingMemory = res.working_memory;
+    }
+
     const bubble = aiMsg.querySelector('.bubble');
     bubble.classList.remove('thinking');
-    
+
     if (res.routed === "instant") {
       bubble.classList.add('instant');
       bubble.style.borderLeft = "4px solid #4ade80"; // Subtle indicator for instant
+    } else if (res.routed === "follow-up") {
+      bubble.style.borderLeft = "4px solid #60a5fa"; // Blue for follow-up intelligence
     }
 
     bubble.innerHTML = markdownToHtml(res.response);
