@@ -9,6 +9,7 @@ import asyncio
 import commitment_engine
 import issue_engine
 import digest_engine
+import rag_engine
 
 async def auto_escalate_task():
     while True:
@@ -23,6 +24,7 @@ async def auto_escalate_task():
 async def lifespan(app: FastAPI):
     commitment_engine.init_db()
     issue_engine.init_db()
+    rag_engine.init_db()
     asyncio.create_task(auto_escalate_task())
     yield
 
@@ -57,7 +59,56 @@ class CompletionRequest(BaseModel):
 class ExtendRequest(BaseModel):
     new_deadline: str
 
+class ChatRequest(BaseModel):
+    query: str
+
 # API Endpoints
+@app.post("/api/chat")
+def chat(req: ChatRequest):
+    try:
+        # 1. Routing: Skip RAG for simple queries
+        if not rag_engine.needs_context(req.query):
+            client = rag_engine.get_client()
+            res = client.models.generate_content(
+                model='gemini-3-flash-preview', 
+                contents=f"You are Co-Pilot. Answer the user's greeting or general question warmly. Query: {req.query}"
+            )
+            return {"response": res.text.strip(), "sources": [], "routed": "instant"}
+
+        # 2. RAG Flow
+        profile = commitment_engine.get_profile()
+        digest = digest_engine.get_digest()
+        todo = commitment_engine.get_todo_list()
+        
+        db = issue_engine.get_db()
+        clusters = db.execute("SELECT * FROM clusters WHERE status = 'open' ORDER BY weight DESC").fetchall()
+        db.close()
+        cluster_list = [dict(c) for c in clusters]
+        
+        res_data = rag_engine.chat(
+            query=req.query,
+            profile=profile,
+            digest=digest,
+            top_items=todo["meeting_items"],
+            clusters=cluster_list
+        )
+        
+        # 3. Post-Process: AI Self-Memory
+        import re
+        mem_match = re.search(r"\[MEMORY:\s*(.*?)\](.*?)\[/MEMORY\]", res_data["response"], re.DOTALL)
+        if mem_match:
+            topic = mem_match.group(1).strip()
+            content = mem_match.group(2).strip()
+            rag_engine.store_memory(topic, content)
+            # Remove tag from user-facing response
+            res_data["response"] = re.sub(r"\[MEMORY:.*?/MEMORY\]", "", res_data["response"], flags=re.DOTALL).strip()
+            res_data["memory_stored"] = True
+
+        return res_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Existing API Endpoints
 @app.get("/api/digest")
 def get_digest():
     return digest_engine.get_digest()

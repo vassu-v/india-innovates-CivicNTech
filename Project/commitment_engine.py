@@ -4,6 +4,7 @@ import sqlite3
 import datetime
 from dotenv import load_dotenv
 import google.genai as genai
+import rag_engine
 
 # Load environment variables
 load_dotenv()
@@ -518,6 +519,18 @@ Extensions: {item['extension_count']}"""
     conn.close()
     
     # In a real app, you would call RAG Engine here: rag_engine.store_fact(fact_string)
+    try:
+        rag_engine.store_node(
+            domain='commitment_history',
+            ward=item['ward'],
+            topic=None,
+            title=item['title'],
+            content=fact_string,
+            source_ref=f"timely_items:{item_id}"
+        )
+    except Exception as e:
+        print(f"RAG Storage failed: {e}")
+
     return fact_string
 
 def extend_item(item_id, new_deadline):
@@ -716,8 +729,22 @@ def add_context_file(filename, label, category, content):
         INSERT INTO context_files (filename, label, category, content)
         VALUES (?, ?, ?, ?)
     """, (filename, label, category, content))
+    new_id = cursor.lastrowid
     conn.commit()
     conn.close()
+
+    try:
+        rag_engine.store_node(
+            domain='context_file',
+            ward=None,
+            topic=category,
+            title=label,
+            content=content,
+            source_ref=f"context_files:{new_id}"
+        )
+    except Exception as e:
+        print(f"RAG Context Storage failed: {e}")
+
     return True
 
 def get_context_files():

@@ -4,6 +4,16 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function markdownToHtml(text) {
+  if (!text) return "";
+  let html = text
+    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.*?)\*/g, '<i>$1</i>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+  return html;
+}
+
 async function fetchData(url, options = {}) {
   try {
     const response = await fetch(url, options);
@@ -696,3 +706,71 @@ async function loadRecentMeetings() {
     }
   }
 }
+async function sendChat() {
+  const input = document.querySelector('.chat-input');
+  const log = document.querySelector('.chat-log');
+  const query = input.value.trim();
+  if (!query) return;
+
+  // Add user message
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg';
+  userMsg.innerHTML = `
+    <div class="msg-from">You · ${time}</div>
+    <div class="bubble you">${escapeHtml(query)}</div>
+  `;
+  log.appendChild(userMsg);
+  input.value = '';
+  log.scrollTop = log.scrollHeight;
+
+  // Show thinking
+  const aiMsg = document.createElement('div');
+  aiMsg.className = 'msg';
+  aiMsg.innerHTML = `
+    <div class="msg-from">Co-Pilot · ${time}</div>
+    <div class="bubble ai thinking">Thinking across all databases...</div>
+  `;
+  log.appendChild(aiMsg);
+  log.scrollTop = log.scrollHeight;
+
+  const res = await fetchData('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+
+  if (res) {
+    const bubble = aiMsg.querySelector('.bubble');
+    bubble.classList.remove('thinking');
+    
+    if (res.routed === "instant") {
+      bubble.classList.add('instant');
+      bubble.style.borderLeft = "4px solid #4ade80"; // Subtle indicator for instant
+    }
+
+    bubble.innerHTML = markdownToHtml(res.response);
+    
+    if (res.sources && res.sources.length > 0) {
+      const sourcesDiv = document.createElement('div');
+      sourcesDiv.className = 'sources';
+      sourcesDiv.innerHTML = 'Sources: ' + res.sources.map(s => `
+        <span class="src-chip" title="${escapeHtml(s.domain)}">${escapeHtml(s.title)}</span>
+      `).join('');
+      aiMsg.appendChild(sourcesDiv);
+    }
+  } else {
+    aiMsg.querySelector('.bubble').innerText = "Sorry, I'm having trouble connecting to my brain right now.";
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+// Wire up chat event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  const sendBtn = document.querySelector('.chat-send');
+  const input = document.querySelector('.chat-input');
+  if (sendBtn) sendBtn.onclick = sendChat;
+  if (input) {
+    input.onkeypress = (e) => { if (e.key === 'Enter') sendChat(); };
+  }
+});

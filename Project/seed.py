@@ -20,6 +20,7 @@ import commitment_engine
 import issue_engine
 import datetime
 import sqlite3
+import rag_engine
 import sys
 
 today      = datetime.datetime.now().date()
@@ -52,6 +53,7 @@ def _backdate_completion(item_id, completed_date_str, resolution_notes="Resolved
     complete_item() always uses now(), so we patch via SQL after.
     """
     conn = sqlite3.connect(commitment_engine.DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(
         """UPDATE timely_items
@@ -60,7 +62,24 @@ def _backdate_completion(item_id, completed_date_str, resolution_notes="Resolved
         (completed_date_str + "T10:00:00", resolution_notes, item_id)
     )
     conn.commit()
+    cursor.execute("SELECT * FROM timely_items WHERE id=?", (item_id,))
+    item = cursor.fetchone()
     conn.close()
+
+    if not item: return
+
+    # Ingest to RAG
+    try:
+        rag_engine.store_node(
+            domain='commitment_history',
+            ward=item['ward'],
+            topic=None,
+            title=item['title'],
+            content=f"Commitment: {item['title']}\nResolution: {resolution_notes}\nCompleted: {completed_date_str}",
+            source_ref=f"timely_items:{item_id}"
+        )
+    except Exception as e:
+        print(f"Seed RAG injection failed: {e}")
 
 
 def _log_complaint(citizen_name, ward, channel, text, date_received):
@@ -81,14 +100,16 @@ def _log_complaint(citizen_name, ward, channel, text, date_received):
 # -- main seed ----------------------------------------------------------------
 
 def seed(reset=False):
+    print("Initialising databases...")
+    commitment_engine.init_db()
+    issue_engine.init_db()
+    rag_engine.init_db()
+
     if reset:
         print("Resetting databases...")
         commitment_engine.truncate_db()
         issue_engine.truncate_db()
-
-    print("Initialising databases...")
-    commitment_engine.init_db()
-    issue_engine.init_db()
+        rag_engine.truncate_db()
 
     # -- PROFILE --------------------------------------------------------------
     print("Setting MLA profile...")
@@ -333,6 +354,25 @@ def seed(reset=False):
     # -- ESCALATE - ensure weights reflect overdue days correctly --------------
     print("Running escalation to set correct weights...")
     commitment_engine.escalate()
+
+    # -- HISTORICAL RAG CONTEXT -----------------------------------------------
+    print("Seeding historical knowledge for RAG...")
+    rag_engine.store_node(
+        domain='context_file',
+        ward='Ward 42',
+        topic='demographics',
+        title='Ward 42 Factsheet 2024',
+        content="Ward 42 (South Delhi) has a population of 45,000. Drainage coverage is 60%. Major flooding occurs every February-March. 340 residents are currently eligible for PM Awas Yojana but haven't applied.",
+        source_ref='seed_static_context'
+    )
+    rag_engine.store_node(
+        domain='complaint_pattern',
+        ward=None,
+        topic='governance',
+        title='Resolution Patterns with PWD',
+        content="Past data shows that routing drainage complaints through general PWD department takes 28 days on average. Direct escalation to Commissioner Singh typically resolves issues in 18 days.",
+        source_ref='seed_static_context'
+    )
 
     # -- SUMMARY --------------------------------------------------------------
     conn = sqlite3.connect(commitment_engine.DB_PATH)
