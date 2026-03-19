@@ -120,6 +120,25 @@ def test_all_features(page: Page):
     page.screenshot(path="verify_8_context.png")
     os.remove(ctx_path)
 
+    # 9. Chat System
+    print("9. Verifying Chat System...")
+    page.click(".nav-tab:has-text('Chat')")
+    page.wait_for_selector("#page-chat.active")
+    page.fill(".chat-input", "Who is the MLA?")
+    page.click(".chat-send")
+    # Wait for response bubble to appear and not be "thinking"
+    page.wait_for_selector(".bubble.ai:not(.thinking)", timeout=30000)
+    page.screenshot(path="verify_9_chat.png")
+
+    # 10. Suggestions
+    print("10. Verifying Suggestions...")
+    page.click(".nav-tab:has-text('Suggestions')")
+    page.wait_for_selector("#page-suggestions.active")
+    page.click("#sug-gen-btn")
+    # Wait for either suggestions or the "No suggestions" / error message
+    page.wait_for_selector("#sug-results .suggestion, #sug-results div", timeout=30000)
+    page.screenshot(path="verify_10_suggestions.png")
+
     print("\nVerification complete! Screenshots saved as verify_*.png")
 
 if __name__ == "__main__":

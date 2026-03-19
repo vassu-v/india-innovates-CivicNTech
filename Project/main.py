@@ -249,6 +249,28 @@ async def upload_context(
 def get_context_files():
     return commitment_engine.get_context_files()
 
+@app.get("/api/suggestions")
+def get_suggestions():
+    try:
+        profile = commitment_engine.get_profile()
+        digest = digest_engine.get_digest()
+        db = issue_engine.get_db()
+        clusters = db.execute("SELECT * FROM clusters WHERE status = 'open' ORDER BY weight DESC").fetchall()
+        db.close()
+        cluster_list = [dict(c) for c in clusters]
+
+        todo = commitment_engine.get_todo_list()
+        top_items = todo["meeting_items"] + todo["issue_items"]
+
+        return rag_engine.generate_suggestions(
+            profile=profile,
+            digest=digest,
+            clusters=cluster_list,
+            top_items=top_items
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Serve Frontend
 @app.get("/")
 def read_root():
