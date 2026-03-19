@@ -26,6 +26,33 @@ AI-powered governance assistant for Indian elected representatives. Tracks commi
 | Log Issue | Live — complaint → vector cluster → To-Do |
 | Profile | Live — persists to DB, loads on start. Cleaned of stale options. |
 
+---
+
+## RAG & Intelligence Layer
+
+Proto3 introduces a sophisticated RAG (Retrieval-Augmented Generation) architecture that grounds AI responses in live governance data.
+
+### 1. 3-Layer Context Assembly
+The RAG Engine doesn't just "search for text." It assembles a comprehensive snapshot for every query:
+- **Layer 1: Live Constituency State** — Dynamic stats from the Digest (resolution rates, critical counts), the MLA's Profile, and top pending To-Do items.
+- **Layer 2: Historical Facts & AI Memory** — Vector-retrieved documents from injected context files, completed commitment history, and "AI Memory" nodes.
+- **Layer 3: Live Patterns** — Real-time citizen complaint clusters from the Issue Engine.
+
+### 2. Local Semantic Router
+A zero-latency, zero-token router built into the backend. It classifies queries locally using embeddings:
+- **Instant Route:** Greets the user or handles small talk without hitting the LLM or Database.
+- **Follow-up Route:** Uses "Working Memory" (embeddings of previously retrieved nodes) to handle contextual follow-up questions efficiently.
+- **Search Route:** Triggers the full 3-Layer RAG pipeline for data-driven answers.
+
+### 3. AI Self-Memory
+The system has a feedback loop where the AI can "learn" and store new facts about the constituency or the MLA's preferences. If the LLM identifies a new pattern or preference, it generates a `[MEMORY]` tag, which the backend parses and stores in the `ai_memory` table for future retrieval.
+
+### 4. Strategic Suggestion System
+The Suggestion system provides high-level strategic insights by performing a **Snapshot Synthesis** of the entire governance state.
+- **Data Synthesis:** It pulls data from the MLA Profile, Weekly Digest (resolution rates, overdue counts), citizen complaint clusters, and the current To-Do list.
+- **LLM Reasoning:** It uses Gemini to analyze this synthesized data and identify critical gaps or opportunities for high-impact interventions.
+- **Actionable Output:** It returns 3 structured, prioritized suggestions to guide the MLA's focus for the upcoming week.
+
 ### API Endpoints
 ```
 GET  /api/todo                    — pending items, filterable by type/urgency/ward
