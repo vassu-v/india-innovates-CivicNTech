@@ -676,7 +676,7 @@ async function generateSuggestions() {
     if (data && data.suggestions && data.suggestions.length > 0) {
       // Render Suggestions
       resultsDiv.innerHTML = data.suggestions.map((s, idx) => `
-        <div class="suggestion ${s.priority || 'blue'}">
+        <div class="suggestion ${s.priority || 'normal'}">
           <div class="sug-title">0${idx + 1} — ${escapeHtml(s.title)}</div>
           <div class="sug-body">${markdownToHtml(s.body)}</div>
         </div>
