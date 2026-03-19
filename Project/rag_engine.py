@@ -189,6 +189,10 @@ def cosine_similarity(v1, v2):
     return sumxy / (math.sqrt(sumxx) * math.sqrt(sumyy))
 
 def query_nodes(query_text, limit=5, ward_filter=None):
+    """
+    Retrieves knowledge nodes using vector similarity.
+    Ensures 'embedding' is included in the node dict for working memory tracking.
+    """
     model = get_model()
     query_embedding = model.encode(query_text)
     query_bytes = serialize_f32(query_embedding.tolist())
@@ -198,8 +202,10 @@ def query_nodes(query_text, limit=5, ward_filter=None):
     
     nodes = []
     try:
+        # 1. Attempt using sqlite-vec (High Performance)
         sql = """
-            SELECT n.*, vec_distance_cosine(v.embedding, ?) as distance
+            SELECT n.id, n.domain, n.ward, n.topic, n.title, n.content, n.source_ref, n.created_at,
+                   v.embedding, vec_distance_cosine(v.embedding, ?) as distance
             FROM vec_knowledge v
             JOIN knowledge_nodes n ON v.node_id = n.id
         """
@@ -215,13 +221,23 @@ def query_nodes(query_text, limit=5, ward_filter=None):
         for r in rows:
             node = dict(r)
             node['similarity'] = 1.0 - r['distance']
+            # Unpack embedding BLOB to list of floats for JSON serialization
+            if r['embedding']:
+                emb_data = r['embedding']
+                node['embedding'] = list(struct.unpack(f"{len(emb_data)//4}f", emb_data))
             nodes.append(node)
             
-    except (sqlite3.OperationalError, sqlite3.DatabaseError):
+    except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
+        # 2. Fallback to in-memory cosine similarity (Robustness)
         cursor.execute("SELECT * FROM knowledge_nodes")
         all_meta = cursor.fetchall()
-        cursor.execute("SELECT * FROM vec_knowledge")
-        all_vecs = {r['node_id']: r['embedding'] for r in cursor.fetchall()}
+
+        all_vecs = {}
+        try:
+            cursor.execute("SELECT node_id, embedding FROM vec_knowledge")
+            all_vecs = {r['node_id']: r['embedding'] for r in cursor.fetchall()}
+        except:
+            pass # Module missing or table corrupted
         
         q_vec = query_embedding.tolist()
         results = []
@@ -231,12 +247,16 @@ def query_nodes(query_text, limit=5, ward_filter=None):
                 if ward_filter and meta['ward'] and meta['ward'] != ward_filter:
                     continue
                 v_bytes = all_vecs[nid]
-                v_vec = struct.unpack(f"{len(q_vec)}f", v_bytes)
-                sim = cosine_similarity(q_vec, v_vec)
-                if sim >= THRESHOLD:
-                    node = dict(meta)
-                    node['similarity'] = sim
-                    results.append(node)
+                try:
+                    v_vec = struct.unpack(f"{len(q_vec)}f", v_bytes)
+                    sim = cosine_similarity(q_vec, v_vec)
+                    if sim >= THRESHOLD:
+                        node = dict(meta)
+                        node['similarity'] = sim
+                        node['embedding'] = list(v_vec) # Store as list for working memory
+                        results.append(node)
+                except:
+                    continue
         results.sort(key=lambda x: x['similarity'], reverse=True)
         nodes = results[:limit]
         
@@ -376,9 +396,14 @@ def _execute_tool(tool_name, argument):
         db.close()
 
 def _build_suggestions_context(profile, digest, clusters, top_items):
+    profile = profile or {}
+    digest = digest or {}
+    clusters = clusters or []
+    top_items = top_items or []
+
     ctx = "=== MLA PROFILE ===\n"
-    ctx += f"Name: {profile.get('name')}, Party: {profile.get('party')}, Constituency: {profile.get('ward_name')}\n"
-    ctx += f"Janata Darbar: {profile.get('janata_darbar_day')} at {profile.get('janata_darbar_time')}\n\n"
+    ctx += f"Name: {profile.get('name', 'N/A')}, Party: {profile.get('party', 'N/A')}, Constituency: {profile.get('ward_name', 'N/A')}\n"
+    ctx += f"Janata Darbar: {profile.get('janata_darbar_day', 'N/A')} at {profile.get('janata_darbar_time', 'N/A')}\n\n"
 
     ctx += "=== LIVE DIGEST ===\n"
     ctx += f"Resolution rate this week: {digest.get('resolved', {}).get('resolution_rate', 0)}%\n"

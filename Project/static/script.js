@@ -722,7 +722,12 @@ function toggleTrace() {
 
 function showSug() {
   goPage('suggestions');
-  generateSuggestions();
+  const results = document.getElementById('sug-results');
+  const btn = document.getElementById('sug-gen-btn');
+  // Only auto-trigger if no results present and not already loading
+  if (results.children.length === 0 && !btn.disabled) {
+    generateSuggestions();
+  }
 }
 
 function toggleDigest(btn, type) {
