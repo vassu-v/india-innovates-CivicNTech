@@ -20,6 +20,7 @@ AI-powered governance assistant for Indian elected representatives. Tracks commi
 | To-Do | Live — ranked by weight, complete/extend wired |
 | Commitments | Live — active list + resolved history |
 | Chat | Live — RAG powered assistant grounded in your data |
+| Suggestions | Live — AI-generated strategic insights based on live state |
 | Digest | Live — weekly breakdown with drilldown overlays |
 | Upload Meeting | Live — .txt transcript → Gemini batch extraction → To-Do |
 | Log Issue | Live — complaint → vector cluster → To-Do |
@@ -46,6 +47,12 @@ A zero-latency, zero-token router built into the backend. It classifies queries 
 ### 3. AI Self-Memory
 The system has a feedback loop where the AI can "learn" and store new facts about the constituency or the MLA's preferences. If the LLM identifies a new pattern or preference, it generates a `[MEMORY]` tag, which the backend parses and stores in the `ai_memory` table for future retrieval.
 
+### 4. Strategic Suggestion System
+The Suggestion system provides high-level strategic insights by performing a **Snapshot Synthesis** of the entire governance state.
+- **Data Synthesis:** It pulls data from the MLA Profile, Weekly Digest (resolution rates, overdue counts), citizen complaint clusters, and the current To-Do list.
+- **LLM Reasoning:** It uses Gemini to analyze this synthesized data and identify critical gaps or opportunities for high-impact interventions.
+- **Actionable Output:** It returns 3 structured, prioritized suggestions to guide the MLA's focus for the upcoming week.
+
 ### API Endpoints
 ```
 GET  /api/todo                    — pending items, filterable by type/urgency/ward
@@ -57,6 +64,7 @@ GET  /api/meetings/recent         — recent processed meetings
 GET  /api/complaints/recent       — latest citizen complaints
 GET  /api/context/files           — injected context files
 GET  /api/profile                 — MLA profile
+GET  /api/suggestions             — AI-generated strategic suggestions
 POST /api/chat                    — intelligent RAG chat
 POST /api/complaint               — log citizen complaint → auto-cluster
 POST /api/item                    — add manual item

@@ -38,7 +38,15 @@ The RAG Engine implements a "Self-Indexing" feature. The LLM is instructed to id
 - **Persistence:** The `main.py` API handler parses this tag and calls `rag_engine.store_memory()`.
 - **Retrieval:** These memory nodes are included in Layer 2 for all future queries.
 
-## 5. Database Schema
+## 5. Strategic Suggestion System
+
+The Suggestion System is implemented in `rag_engine.generate_suggestions()`. Unlike Chat, it performs **Snapshot Synthesis**:
+1.  **Context Pull:** It pulls the entire `profile`, `digest`, `clusters`, and `top_items`.
+2.  **Strategic Persona:** It sends this massive state to Gemini with a "Strategic Advisor" persona.
+3.  **Synthesis:** Gemini identifies gaps (e.g., "Resolution rate is low in Ward 17 despite few complaints") and return 3 structured JSON suggestions.
+4.  **Actionability:** Each suggestion is prioritized (red/amber/blue) and contains a concrete body of text for the MLA to act on.
+
+## 6. Database Schema
 
 ### `knowledge_nodes`
 Stores the metadata and text for retrieved snippets.
