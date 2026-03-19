@@ -62,14 +62,14 @@ def needs_context(query, recent_node_embeddings=None):
     q_vec = model.encode([query.lower()])[0]
     
     def cosine_sim(a, b):
-        return (a @ b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-    try:
-        import numpy as np
-    except ImportError:
-        def norm(v): return sum(x*x for x in v)**0.5
-        def dot(v1, v2): return sum(x*y for x,y in zip(v1, v2))
-        def cosine_sim(a, b): return dot(a, b) / (norm(a) * norm(b))
+        # Handle cases where b might be None or empty
+        if b is None or len(b) == 0: return 0
+        a = np.array(a)
+        b = np.array(b)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        if norm_a == 0 or norm_b == 0: return 0
+        return (a @ b) / (norm_a * norm_b)
 
     # 1. Check Small Talk
     if cosine_sim(q_vec, iv["small_talk"]) > 0.65 or cosine_sim(q_vec, iv["thanks"]) > 0.65:
@@ -79,7 +79,7 @@ def needs_context(query, recent_node_embeddings=None):
     if recent_node_embeddings:
         # Check if the query is very similar to any of the nodes we JUST retrieved
         for node_vec in recent_node_embeddings:
-            if cosine_sim(q_vec, node_vec) > 0.75:
+            if node_vec is not None and cosine_sim(q_vec, node_vec) > 0.75:
                 return "follow-up"
 
     return "search"
@@ -225,6 +225,8 @@ def query_nodes(query_text, limit=5, ward_filter=None):
             if r['embedding']:
                 emb_data = r['embedding']
                 node['embedding'] = list(struct.unpack(f"{len(emb_data)//4}f", emb_data))
+            else:
+                node['embedding'] = None
             nodes.append(node)
             
     except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
@@ -243,6 +245,10 @@ def query_nodes(query_text, limit=5, ward_filter=None):
         results = []
         for meta in all_meta:
             nid = meta['id']
+            node = dict(meta)
+            node['similarity'] = 0
+            node['embedding'] = None
+
             if nid in all_vecs and all_vecs[nid]:
                 if ward_filter and meta['ward'] and meta['ward'] != ward_filter:
                     continue
@@ -251,7 +257,6 @@ def query_nodes(query_text, limit=5, ward_filter=None):
                     v_vec = struct.unpack(f"{len(q_vec)}f", v_bytes)
                     sim = cosine_similarity(q_vec, v_vec)
                     if sim >= THRESHOLD:
-                        node = dict(meta)
                         node['similarity'] = sim
                         node['embedding'] = list(v_vec) # Store as list for working memory
                         results.append(node)
@@ -331,7 +336,7 @@ QUESTION:
         return {
             "response": response.text.strip(), 
             "sources": sources,
-            "working_memory": [n["embedding"] for n in nodes if "embedding" in n]
+            "working_memory": [n["embedding"] for n in nodes if n.get("embedding") is not None]
         }
     except Exception as e:
         return {"response": f"Chat failed: {e}", "sources": [], "working_memory": []}
