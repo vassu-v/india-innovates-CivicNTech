@@ -34,6 +34,13 @@ async function loadHome() {
 
   // Dynamic Date for Home
   const now = new Date();
+  const hour = now.getHours();
+  let greeting = "Good evening";
+  if (hour < 12) greeting = "Good morning";
+  else if (hour < 17) greeting = "Good afternoon";
+  const homeGreeting = document.getElementById('home-greeting-text');
+  if (homeGreeting) homeGreeting.innerText = greeting;
+
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const homeDateDay = document.getElementById('home-date-day');
@@ -93,24 +100,20 @@ async function loadHome() {
   }
 
   if (stats) {
-    // Update Patterns card
-    const patternsContainer = document.querySelector('#page-home .home-card[onclick*="commitments"]');
-    if (patternsContainer) {
-      const label = patternsContainer.querySelector('.home-card-label').outerHTML;
-      let html = label;
-
-      // Helper to add patterns
+    // Update Patterns card (formerly under onclick commitments, now generic)
+    const patternsContainer = document.getElementById('home-suggestions-content');
+    if (patternsContainer && stats.all_time.most_reliable_contact) {
+      let html = "";
       if (stats.all_time.most_reliable_contact) {
         html += `<div class="home-pattern"><div class="pdot" style="background:var(--green)"></div><div>${stats.all_time.most_reliable_contact}: Most reliable contact</div></div>`;
       }
       if (stats.all_time.avg_days_to_resolve > 0) {
         html += `<div class="home-pattern"><div class="pdot" style="background:var(--blue)"></div><div>Avg resolution: ${Math.round(stats.all_time.avg_days_to_resolve)} days</div></div>`;
       }
-      if (stats.all_time.extension_rate > 20) {
+      if (stats.all_time.extension_rate > 10) {
         html += `<div class="home-pattern"><div class="pdot" style="background:var(--amber)"></div><div>High extension rate: ${Math.round(stats.all_time.extension_rate)}%</div></div>`;
       }
-
-      patternsContainer.innerHTML = html;
+      if (html) patternsContainer.innerHTML = html;
     }
   }
   // loadClusters(); // Original call, now moved inside loadHome
@@ -654,8 +657,38 @@ async function loadRecentComplaints() {
 
 
 
+async function generateSuggestions() {
+  const btn = document.getElementById('sug-gen-btn');
+  const resultsDiv = document.getElementById('sug-results');
+
+  btn.innerText = 'Generating...';
+  btn.disabled = true;
+  resultsDiv.innerHTML = '';
+  resultsDiv.style.display = 'block';
+
+  try {
+    const suggestions = await fetchData('/api/suggestions');
+    if (suggestions && suggestions.length > 0) {
+      resultsDiv.innerHTML = suggestions.map((s, idx) => `
+        <div class="suggestion ${s.priority || 'blue'}">
+          <div class="sug-title">0${idx + 1} — ${escapeHtml(s.title)}</div>
+          <div class="sug-body">${markdownToHtml(s.body)}</div>
+        </div>
+      `).join('');
+    } else {
+      resultsDiv.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No suggestions generated. Make sure your GEMINI_API_KEY is set.</div>';
+    }
+  } catch (e) {
+    resultsDiv.innerHTML = '<div style="color:var(--red);font-size:11px;padding:20px">Failed to generate suggestions.</div>';
+  } finally {
+    btn.innerText = 'Generate suggestions now';
+    btn.disabled = false;
+  }
+}
+
 function showSug() {
-  document.getElementById('sug-results').style.display = 'block';
+  goPage('suggestions');
+  generateSuggestions();
 }
 
 function toggleDigest(btn, type) {

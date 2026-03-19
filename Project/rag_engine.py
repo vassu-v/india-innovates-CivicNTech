@@ -1,6 +1,9 @@
 import os
 import json
-import sqlite3
+try:
+    from pysqlite3 import dbapi2 as sqlite3
+except ImportError:
+    import sqlite3
 import struct
 import datetime
 from dotenv import load_dotenv
