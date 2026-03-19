@@ -35,24 +35,24 @@
 
     <div class="home-hero">
       <div>
-        <div class="home-greeting">Good morning</div>
+        <div class="home-greeting" id="home-greeting-text">Good morning</div>
         <div class="home-name"><span id="hero-user-name">MLA</span></div>
         <div class="home-meta" id="hero-user-meta">Ward Profile Loading...</div>
         <div class="home-quick-stats">
           <div class="hqs">
-            <div class="hqs-num red">2</div>
+            <div class="hqs-num red">-</div>
             <div class="hqs-lbl">Critical</div>
           </div>
           <div class="hqs">
-            <div class="hqs-num amber">4</div>
+            <div class="hqs-num amber">-</div>
             <div class="hqs-lbl">Overdue</div>
           </div>
           <div class="hqs">
-            <div class="hqs-num blue">14</div>
+            <div class="hqs-num blue">-</div>
             <div class="hqs-lbl">Open items</div>
           </div>
           <div class="hqs">
-            <div class="hqs-num green">61%</div>
+            <div class="hqs-num green">-%</div>
             <div class="hqs-lbl">On-time rate</div>
           </div>
         </div>
@@ -119,22 +119,13 @@
 
       <!-- SUGGESTIONS -->
       <div class="home-card" onclick="goPage('suggestions')">
-        <div class="home-card-label">Suggestions waiting <span>→</span></div>
-        <div class="home-pattern">
-          <div class="pdot" style="background:var(--red);margin-top:5px;flex-shrink:0"></div>
-          <div>Drainage W42 — escalate to Commissioner Singh directly today</div>
-        </div>
-        <div class="home-pattern">
-          <div class="pdot" style="background:var(--amber);margin-top:5px;flex-shrink:0"></div>
-          <div>Monsoon prep window closes in 2 weeks — PWD inspection needed</div>
-        </div>
-        <div class="home-pattern">
-          <div class="pdot" style="background:var(--blue);margin-top:5px;flex-shrink:0"></div>
-          <div>340 Ward 8 residents eligible for PM Awas — camp visit next week</div>
+        <div class="home-card-label">Strategic Suggestions <span>→</span></div>
+        <div id="home-suggestions-content">
+          <div style="color:#888;font-size:11px;padding:10px 0">AI is ready to analyze your latest governance data and provide strategic insights.</div>
         </div>
         <div style="margin-top:10px">
           <button class="gen-btn" style="margin-bottom:0;font-size:9px;padding:7px 14px"
-            onclick="event.stopPropagation();goPage('suggestions');showSug()">Generate now</button>
+            onclick="event.stopPropagation();showSug()">Generate now</button>
         </div>
       </div>
 
@@ -219,34 +210,13 @@
   <!-- SUGGESTIONS -->
   <div class="page" id="page-suggestions">
     <div class="page-title">Suggestions</div>
-    <div class="page-sub">On demand only · AI thinks across all four databases when you ask</div>
+    <div class="page-sub">On demand only · AI thinks across all governance data when you ask</div>
 
-    <button class="gen-btn" onclick="showSug()">Generate suggestions now</button>
+    <button class="gen-btn" id="sug-gen-btn" onclick="generateSuggestions()">Generate suggestions now</button>
 
-    <div id="sug-results" style="display:none">
-      <div class="suggestion red">
-        <div class="sug-title">01 — Drainage Ward 42 — escalate today</div>
-        <div class="sug-body">12 days overdue. Commissioner Singh resolved a similar issue in 18 days when contacted
-          directly (Aug 2024). Routing through department averages 28 days. Recommend a direct call today.</div>
-      </div>
-      <div class="suggestion amber">
-        <div class="sug-title">02 — Monsoon prep window closing</div>
-        <div class="sug-body">Monsoon is 8 weeks away. Ward 42 and Ward 17 flooded last 3 years. Pre-monsoon drain
-          cleaning done in 2023 — no flooding. Skipped in 2024 — worse flooding. PWD inspection window closes in 2
-          weeks.</div>
-      </div>
-      <div class="suggestion blue">
-        <div class="sug-title">03 — Scheme opportunity — Ward 8 visit next week</div>
-        <div class="sug-body">340 residents in Ward 8 are estimated eligible for PM Awas Yojana but have not applied.
-          Camp office visit is already scheduled next week — ideal timing for an awareness drive.</div>
-      </div>
-      <div class="suggestion" style="border-left-color:var(--mid)">
-        <div class="sug-title">04 — Untracked commitments — Jan 20 meeting</div>
-        <div class="sug-body">4 commitments were logged from the Jan 20 Ward Councillors meeting. 2 have no update in
-          the system. Review before next interaction with this group.</div>
-      </div>
+    <div id="sug-results" class="issue-list" style="display:none">
+      <!-- Real suggestions will be injected here -->
     </div>
-    <div class="mockup-indicator">MOCKUP: Backend logic not fully implemented</div>
   </div>
 
   <!-- DIGEST -->
@@ -580,21 +550,6 @@
       </div>
     </div>
 
-    <div class="section-label">System</div>
-
-    <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Local LLM model</div>
-        <select class="field-input">
-          <option selected>Phi-3 Mini (faster, less RAM)</option>
-          <option>Llama 3 8B (better quality)</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Complaint urgency threshold</div>
-        <input class="field-input" type="text" value="5 complaints = urgent">
-      </div>
-    </div>
 
     <button class="submit-btn" onclick="saveProfile()">Save Changes</button>
 

@@ -1,4 +1,7 @@
-import sqlite3
+try:
+    from pysqlite3 import dbapi2 as sqlite3
+except ImportError:
+    import sqlite3
 import sqlite_vec
 from datetime import datetime
 from sentence_transformers import SentenceTransformer

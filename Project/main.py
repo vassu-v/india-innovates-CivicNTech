@@ -61,13 +61,19 @@ class ExtendRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     query: str
+    working_memory: list = []
 
 # API Endpoints
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     try:
-        # 1. Routing: Skip RAG for simple queries
-        if not rag_engine.needs_context(req.query):
+        # Working memory from request (if any)
+        recent_embeddings = req.__dict__.get("working_memory", [])
+        
+        # 1. Routing: Instant, Follow-up, or Search
+        route = rag_engine.needs_context(req.query, recent_embeddings)
+        
+        if route == "instant":
             client = rag_engine.get_client()
             res = client.models.generate_content(
                 model='gemini-3-flash-preview', 
@@ -75,7 +81,14 @@ def chat(req: ChatRequest):
             )
             return {"response": res.text.strip(), "sources": [], "routed": "instant"}
 
-        # 2. RAG Flow
+        if route == "follow-up":
+            # Just call Gemini directly with history (no new search)
+            # We skip the heavy retrieval because the context is already "in chat"
+            res_data = rag_engine.chat(query=req.query, profile=commitment_engine.get_profile())
+            res_data["routed"] = "follow-up"
+            return res_data
+
+        # 2. Full RAG Flow (NEW_DATA_QUERY)
         profile = commitment_engine.get_profile()
         digest = digest_engine.get_digest()
         todo = commitment_engine.get_todo_list()
@@ -235,6 +248,28 @@ async def upload_context(
 @app.get("/api/context/files")
 def get_context_files():
     return commitment_engine.get_context_files()
+
+@app.get("/api/suggestions")
+def get_suggestions():
+    try:
+        profile = commitment_engine.get_profile()
+        digest = digest_engine.get_digest()
+        db = issue_engine.get_db()
+        clusters = db.execute("SELECT * FROM clusters WHERE status = 'open' ORDER BY weight DESC").fetchall()
+        db.close()
+        cluster_list = [dict(c) for c in clusters]
+
+        todo = commitment_engine.get_todo_list()
+        top_items = todo["meeting_items"] + todo["issue_items"]
+
+        return rag_engine.generate_suggestions(
+            profile=profile,
+            digest=digest,
+            clusters=cluster_list,
+            top_items=top_items
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Serve Frontend
 @app.get("/")

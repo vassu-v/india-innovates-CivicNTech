@@ -1,11 +1,15 @@
 import os
 import json
-import sqlite3
+try:
+    from pysqlite3 import dbapi2 as sqlite3
+except ImportError:
+    import sqlite3
 import struct
 import datetime
 from dotenv import load_dotenv
 import google.genai as genai
 from sentence_transformers import SentenceTransformer
+import numpy as np
 
 # Load environment variables
 load_dotenv()
@@ -29,19 +33,56 @@ def get_client():
         return genai.Client(api_key=api_key)
     return None
 
-def needs_context(query):
+_intent_vectors = None
+
+def get_intent_vectors():
+    global _intent_vectors
+    if _intent_vectors is not None:
+        return _intent_vectors
+    
+    model = get_model()
+    # Pre-calculated centroids for "Small Talk" intents
+    greetings = ["hi", "hello", "hey", "greetings", "namaste", "good morning", "good evening", "who are you", "what can you do"]
+    thanks = ["thanks", "thank you", "much appreciated", "great", "awesome", "nice", "perfect"]
+    
+    _intent_vectors = {
+        "small_talk": model.encode(greetings).mean(axis=0),
+        "thanks": model.encode(thanks).mean(axis=0)
+    }
+    return _intent_vectors
+
+def needs_context(query, recent_node_embeddings=None):
     """
-    Fast heuristic to skip RAG for simple greetings/thanks.
-    Zero token cost, zero latency.
+    Local Semantic Router: Detects Small Talk and Contextual Follow-ups.
+    Zero tokens, Zero latency.
     """
-    q = query.lower().strip()
-    greetings = {"hi", "hello", "hey", "hola", "namaste", "good morning", "good evening", "thanks", "thank you", "who are you"}
-    if q in greetings or len(q) < 4:
-        return False
-    # If query is mostly punctuation/emojis
-    if not any(c.isalpha() for c in q):
-        return False
-    return True
+    model = get_model()
+    iv = get_intent_vectors()
+    
+    q_vec = model.encode([query.lower()])[0]
+    
+    def cosine_sim(a, b):
+        return (a @ b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+    try:
+        import numpy as np
+    except ImportError:
+        def norm(v): return sum(x*x for x in v)**0.5
+        def dot(v1, v2): return sum(x*y for x,y in zip(v1, v2))
+        def cosine_sim(a, b): return dot(a, b) / (norm(a) * norm(b))
+
+    # 1. Check Small Talk
+    if cosine_sim(q_vec, iv["small_talk"]) > 0.65 or cosine_sim(q_vec, iv["thanks"]) > 0.65:
+        return "instant"
+        
+    # 2. Check Semantic Follow-up (Working Memory)
+    if recent_node_embeddings:
+        # Check if the query is very similar to any of the nodes we JUST retrieved
+        for node_vec in recent_node_embeddings:
+            if cosine_sim(q_vec, node_vec) > 0.75:
+                return "follow-up"
+
+    return "search"
 
 def store_memory(topic, content):
     db = get_db()
@@ -266,9 +307,14 @@ QUESTION:
     try:
         response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
         sources = [{"id": n["id"], "domain": n["domain"], "title": n["title"]} for n in nodes]
-        return {"response": response.text.strip(), "sources": sources}
+        # Include embeddings for frontend-to-backend "Working Memory" loop
+        return {
+            "response": response.text.strip(), 
+            "sources": sources,
+            "working_memory": [n["embedding"] for n in nodes if "embedding" in n]
+        }
     except Exception as e:
-        return {"response": f"Chat failed: {e}", "sources": []}
+        return {"response": f"Chat failed: {e}", "sources": [], "working_memory": []}
 
 def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None):
     client = get_client()

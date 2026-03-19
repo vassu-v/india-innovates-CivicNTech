@@ -96,7 +96,7 @@ Deadline inference rules if not explicit:
   action     → 5 days from meeting date
 """
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3-flash-preview',
             contents=prompt,
         )
         raw = response.text.strip()
