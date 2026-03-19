@@ -175,8 +175,7 @@ def process_complaint(complaint_data):
     if embedding_bytes:
         try:
             # A. Try sqlite-vec first
-            cursor.execute("SELECT vec_version()") # Check if extension is loaded
-
+            # Attempting a vector query directly to check for module support
             cursor.execute("""
                 SELECT v.cluster_id, vec_distance_cosine(v.embedding, ?) as distance
                 FROM vec_clusters v
@@ -186,25 +185,29 @@ def process_complaint(complaint_data):
                 LIMIT 1
             """, (embedding_bytes, normalized_ward))
             match = cursor.fetchone()
-        except (Exception, sqlite3.OperationalError):
+        except Exception:
             # B. Fallback to in-memory similarity if sqlite-vec is missing
             try:
-                # Try JOIN first (works if vec_clusters is a normal table or module is loaded)
+                # Try fetch with embedding (works if vec_clusters is a normal table)
                 cursor.execute("""
                     SELECT c.id, v.embedding, c.ward
                     FROM clusters c
-                    LEFT JOIN vec_clusters v ON c.id = v.cluster_id
+                    JOIN vec_clusters v ON c.id = v.cluster_id
                 """)
                 rows = cursor.fetchall()
-            except sqlite3.OperationalError:
-                # Fallback: vec_clusters is virtual and module is missing
+            except Exception:
+                # Fallback: vec_clusters is virtual and module is missing - cannot get embeddings
                 cursor.execute("SELECT id, ward FROM clusters")
-                rows = [dict(r, embedding=None) for r in cursor.fetchall()]
+                rows = cursor.fetchall()
 
             all_clusters = []
             for r in rows:
                 if normalize_ward(r['ward']) == normalized_ward:
-                    all_clusters.append(r)
+                    # Convert sqlite3.Row to dict and ensure embedding key exists
+                    d = dict(r)
+                    if 'embedding' not in d:
+                        d['embedding'] = None
+                    all_clusters.append(d)
             
             best_sim = -1
             best_id = None

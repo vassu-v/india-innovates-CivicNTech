@@ -5,3 +5,4 @@ google-genai
 python-dotenv
 sentence-transformers
 sqlite-vec
+numpy
