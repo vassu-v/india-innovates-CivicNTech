@@ -316,17 +316,246 @@ QUESTION:
     except Exception as e:
         return {"response": f"Chat failed: {e}", "sources": [], "working_memory": []}
 
-def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None):
-    client = get_client()
-    if not client: return []
-    context = f"Profile: {profile}\nDigest: {digest}\nClusters: {clusters}\nTasks: {top_items}"
-    prompt = f"Based on this data, return a JSON array of 3 strategic suggestions (priority, title, body).\n\nDATA:\n{context}"
+def _execute_tool(tool_name, argument):
+    db = get_db()
     try:
-        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
-        raw = response.text.strip()
-        if "```json" in raw: raw = raw.split("```json")[1].split("```")[0]
-        return json.loads(raw.strip())
-    except: return []
+        if tool_name == "get_ward_history":
+            rows = db.execute("""
+                SELECT title, type, status, deadline, completed_at, urgency, to_whom, extension_count
+                FROM timely_items
+                WHERE ward = ?
+                ORDER BY created_at DESC LIMIT 10
+            """, (argument,)).fetchall()
+        elif tool_name == "get_department_track_record":
+            rows = db.execute("""
+                SELECT title, status, deadline, completed_at, extension_count, urgency
+                FROM timely_items
+                WHERE to_whom = ?
+                ORDER BY created_at DESC LIMIT 10
+            """, (argument,)).fetchall()
+        elif tool_name == "get_overdue_items":
+            rows = db.execute("""
+                SELECT title, ward, to_whom, deadline, weight, extension_count
+                FROM timely_items
+                WHERE status = 'pending' AND urgency = ?
+                ORDER BY weight DESC LIMIT 10
+            """, (argument,)).fetchall()
+        elif tool_name == "get_complaint_cluster_detail":
+            rows = db.execute("""
+                SELECT c.summary, c.ward, c.weight, c.urgency, c.created_at, COUNT(co.id) as complaint_count
+                FROM clusters c
+                LEFT JOIN complaints co ON co.cluster_id = c.id
+                WHERE c.id = ?
+                GROUP BY c.id
+            """, (argument,)).fetchall()
+        elif tool_name == "get_ai_memory":
+            rows = db.execute("""
+                SELECT topic, content, created_at
+                FROM ai_memory
+                WHERE topic LIKE ?
+                ORDER BY created_at DESC LIMIT 5
+            """, (f"%{argument}%",)).fetchall()
+        elif tool_name == "get_resolved_history":
+            limit = int(argument) if argument and str(argument).isdigit() else 10
+            rows = db.execute("""
+                SELECT title, to_whom, ward, deadline, completed_at, extension_count
+                FROM timely_items
+                WHERE status = 'completed'
+                ORDER BY completed_at DESC LIMIT ?
+            """, (limit,)).fetchall()
+        else:
+            return f"Error: Tool {tool_name} not found."
+
+        if not rows:
+            return "No results found."
+
+        return "\n".join([str(dict(r)) for r in rows])
+    except Exception as e:
+        return f"Error executing tool: {e}"
+    finally:
+        db.close()
+
+def _build_suggestions_context(profile, digest, clusters, top_items):
+    ctx = "=== MLA PROFILE ===\n"
+    ctx += f"Name: {profile.get('name')}, Party: {profile.get('party')}, Constituency: {profile.get('ward_name')}\n"
+    ctx += f"Janata Darbar: {profile.get('janata_darbar_day')} at {profile.get('janata_darbar_time')}\n\n"
+
+    ctx += "=== LIVE DIGEST ===\n"
+    ctx += f"Resolution rate this week: {digest.get('resolved', {}).get('resolution_rate', 0)}%\n"
+    ctx += f"Critical items: {digest.get('open_right_now', {}).get('critical', 0)}\n"
+    ctx += f"Urgent items: {digest.get('open_right_now', {}).get('urgent', 0)}\n"
+    ctx += f"Most overdue: {digest.get('most_overdue', {}).get('title', 'None')} — {digest.get('most_overdue', {}).get('days_overdue', 0)} days\n\n"
+
+    ctx += "=== ALL CRITICAL + URGENT ITEMS ===\n"
+    items = sorted(top_items, key=lambda x: x.get('weight', 0), reverse=True)
+    for item in items:
+        if item.get('urgency') in ['critical', 'urgent']:
+            ctx += f"- [{item.get('urgency').upper()}] {item.get('title')} | {item.get('ward')} | To: {item.get('to_whom')} | {item.get('days_overdue', 0)} days overdue | Extensions: {item.get('extension_count', 0)}\n"
+    ctx += "\n"
+
+    ctx += "=== TOP COMPLAINT CLUSTERS ===\n"
+    for c in clusters[:5]:
+        ctx += f"- {c.get('summary')} | {c.get('ward')} | Weight: {c.get('weight')} | Urgency: {c.get('urgency')}\n"
+    ctx += "\n"
+
+    ctx += "=== AI MEMORY NOTES ===\n"
+    db = get_db()
+    memories = db.execute("SELECT topic, content, created_at FROM ai_memory ORDER BY created_at DESC").fetchall()
+    db.close()
+    for m in memories:
+        ctx += f"- [{m['topic']}]: {m['content']} (learned: {m['created_at']})\n"
+
+    return ctx
+
+def run_suggestion_agent(profile=None, digest=None, clusters=None, top_items=None):
+    client = get_client()
+    if not client:
+        return {
+            "suggestions": [],
+            "thinking_trace": [{"round": 1, "type": "error", "content": "API Key missing", "timestamp": datetime.datetime.now().isoformat()}],
+            "rounds_used": 0,
+            "tools_called": []
+        }
+
+    always_on_context = _build_suggestions_context(profile, digest, clusters, top_items)
+    thinking_trace = []
+    tools_called = []
+    all_tool_results = []
+
+    # Round 1
+    round_1_prompt = f"""You are a strategic advisor analysing governance data for an Indian MLA.
+You have access to read-only database tools.
+Maximum tool calls across all rounds: 3.
+
+AVAILABLE TOOLS:
+get_ward_history(ward) — full history for a ward
+get_department_track_record(department) — dept reliability data
+get_overdue_items(urgency) — full overdue list by urgency level
+get_complaint_cluster_detail(cluster_id) — detail on a complaint cluster
+get_ai_memory(topic_keyword) — search AI memory notes
+get_resolved_history(limit) — recent resolution patterns
+
+CURRENT DATA:
+{always_on_context}
+
+TASK:
+Analyse the current situation. Identify the most pressing issues.
+If you need specific historical data to give a better recommendation,
+call a tool. If you have enough to proceed, say READY.
+
+Respond with EXACTLY one of these formats:
+
+TOOL_CALL: tool_name | argument
+THINKING: [your reasoning for calling this tool]
+
+OR
+
+READY
+THINKING: [your analysis summary]
+"""
+
+    current_round = 1
+    try:
+        r1_response = client.models.generate_content(model='gemini-2.0-flash', contents=round_1_prompt).text.strip()
+        thinking_trace.append({"round": 1, "type": "analysis", "content": r1_response, "timestamp": datetime.datetime.now().isoformat()})
+
+        if "TOOL_CALL:" in r1_response:
+            # Parse tool call
+            parts = r1_response.split("TOOL_CALL:")[1].split("\n")[0].split("|")
+            tool_name = parts[0].strip()
+            argument = parts[1].strip() if len(parts) > 1 else ""
+
+            thinking_trace.append({"round": 1, "type": "tool_call", "content": f"Fetching {tool_name} for {argument}...", "tool": tool_name, "args": argument, "timestamp": datetime.datetime.now().isoformat()})
+
+            tool_result = _execute_tool(tool_name, argument)
+            all_tool_results.append(f"TOOL RESULT ({tool_name} | {argument}):\n{tool_result}")
+            tools_called.append(tool_name)
+            thinking_trace.append({"round": 2, "type": "tool_result", "content": tool_result, "timestamp": datetime.datetime.now().isoformat()})
+
+            # Round 2
+            round_2_prompt = f"""PREVIOUS ANALYSIS:
+{r1_response}
+
+TOOL RESULT ({tool_name} | {argument}):
+{tool_result}
+
+CURRENT DATA:
+{always_on_context}
+
+You may call one more tool if needed, or proceed.
+Respond with TOOL_CALL or READY as before.
+"""
+            r2_response = client.models.generate_content(model='gemini-2.0-flash', contents=round_2_prompt).text.strip()
+            thinking_trace.append({"round": 2, "type": "analysis", "content": r2_response, "timestamp": datetime.datetime.now().isoformat()})
+            current_round = 2
+
+            if "TOOL_CALL:" in r2_response:
+                parts = r2_response.split("TOOL_CALL:")[1].split("\n")[0].split("|")
+                tool_name = parts[0].strip()
+                argument = parts[1].strip() if len(parts) > 1 else ""
+
+                thinking_trace.append({"round": 2, "type": "tool_call", "content": f"Fetching {tool_name} for {argument}...", "tool": tool_name, "args": argument, "timestamp": datetime.datetime.now().isoformat()})
+
+                tool_result = _execute_tool(tool_name, argument)
+                all_tool_results.append(f"TOOL RESULT ({tool_name} | {argument}):\n{tool_result}")
+                tools_called.append(tool_name)
+                thinking_trace.append({"round": 3, "type": "tool_result", "content": tool_result, "timestamp": datetime.datetime.now().isoformat()})
+                current_round = 3
+
+        # Final Generation
+        thinking_trace.append({"round": current_round, "type": "final", "content": "Sufficient context. Generating suggestions.", "timestamp": datetime.datetime.now().isoformat()})
+
+        all_thinking = "\n".join([t['content'] for t in thinking_trace if t['type'] == 'analysis'])
+        tool_results_str = "\n\n".join(all_tool_results)
+
+        final_prompt = f"""ANALYSIS COMPLETE. Generate suggestions now.
+
+{always_on_context}
+
+TOOL RESULTS FROM ANALYSIS:
+{tool_results_str}
+
+ANALYSIS SUMMARY:
+{all_thinking}
+
+Generate 3-4 specific, actionable suggestions.
+Every suggestion must reference actual data from the context above.
+No generic advice. No hallucinated statistics.
+
+Return a JSON array only. No markdown. No explanation.
+Each object must have:
+  priority: "critical" | "urgent" | "normal"
+  title: max 8 words, specific and actionable
+  body: 2-3 sentences referencing real data above
+"""
+        final_response = client.models.generate_content(model='gemini-2.0-flash', contents=final_prompt).text.strip()
+
+        if "```json" in final_response:
+            final_response = final_response.split("```json")[1].split("```")[0].strip()
+
+        try:
+            suggestions = json.loads(final_response)
+        except:
+            suggestions = [{"priority": "normal", "title": "Strategic Recommendation", "body": final_response}]
+
+        return {
+            "suggestions": suggestions,
+            "thinking_trace": thinking_trace,
+            "rounds_used": current_round,
+            "tools_called": tools_called,
+            "context_summary": f"{current_round} rounds · {len(tools_called)} tool call{'s' if len(tools_called) != 1 else ''}" + (f" · {tools_called[-1]} fetched" if tools_called else "")
+        }
+
+    except Exception as e:
+        return {
+            "suggestions": [],
+            "thinking_trace": thinking_trace + [{"round": current_round, "type": "error", "content": str(e), "timestamp": datetime.datetime.now().isoformat()}],
+            "rounds_used": current_round,
+            "tools_called": tools_called
+        }
+
+def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None):
+    return run_suggestion_agent(profile, digest, clusters, top_items)
 
 def truncate_db():
     db = get_db()

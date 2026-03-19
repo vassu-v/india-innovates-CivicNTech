@@ -660,29 +660,63 @@ async function loadRecentComplaints() {
 async function generateSuggestions() {
   const btn = document.getElementById('sug-gen-btn');
   const resultsDiv = document.getElementById('sug-results');
+  const traceContainer = document.getElementById('sug-trace-container');
+  const traceContent = document.getElementById('trace-content');
+  const traceSummary = document.getElementById('trace-summary');
 
-  btn.innerText = 'Generating...';
+  btn.innerText = 'Analysing... (may take 15s)';
   btn.disabled = true;
   resultsDiv.innerHTML = '';
-  resultsDiv.style.display = 'block';
+  resultsDiv.style.display = 'none';
+  traceContainer.style.display = 'none';
+  traceContent.style.display = 'none';
 
   try {
-    const suggestions = await fetchData('/api/suggestions');
-    if (suggestions && suggestions.length > 0) {
-      resultsDiv.innerHTML = suggestions.map((s, idx) => `
+    const data = await fetchData('/api/suggestions');
+    if (data && data.suggestions && data.suggestions.length > 0) {
+      // Render Suggestions
+      resultsDiv.innerHTML = data.suggestions.map((s, idx) => `
         <div class="suggestion ${s.priority || 'blue'}">
           <div class="sug-title">0${idx + 1} — ${escapeHtml(s.title)}</div>
           <div class="sug-body">${markdownToHtml(s.body)}</div>
         </div>
       `).join('');
+      resultsDiv.style.display = 'block';
+
+      // Render Thinking Trace
+      if (data.thinking_trace) {
+        traceSummary.innerText = data.context_summary || 'Analysis complete';
+        traceContent.innerHTML = data.thinking_trace.map(t => `
+          <div class="trace-entry">
+            <div class="trace-meta">Round ${t.round} · ${t.type} · ${new Date(t.timestamp).toLocaleTimeString()}</div>
+            <div class="trace-text">${escapeHtml(t.content)}</div>
+            ${t.tool ? `<div class="trace-tool">Tool: ${t.tool}(${t.args})</div>` : ''}
+          </div>
+        `).join('');
+        traceContainer.style.display = 'block';
+      }
     } else {
       resultsDiv.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No suggestions generated. Make sure your GEMINI_API_KEY is set.</div>';
+      resultsDiv.style.display = 'block';
     }
   } catch (e) {
     resultsDiv.innerHTML = '<div style="color:var(--red);font-size:11px;padding:20px">Failed to generate suggestions.</div>';
+    resultsDiv.style.display = 'block';
   } finally {
     btn.innerText = 'Generate suggestions now';
     btn.disabled = false;
+  }
+}
+
+function toggleTrace() {
+  const content = document.getElementById('trace-content');
+  const arrow = document.querySelector('.trace-arrow');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    arrow.innerText = '▲';
+  } else {
+    content.style.display = 'none';
+    arrow.innerText = '▼';
   }
 }
 

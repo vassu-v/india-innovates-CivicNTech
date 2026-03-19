@@ -1,10 +1,10 @@
-# CivicNTech Co-Pilot — Proto3
+# CivicNTech Co-Pilot — Finalé ![Finalé](https://img.shields.io/badge/Status-Finalé-brightgreen)
 
 AI-powered governance assistant for Indian elected representatives. Tracks commitments made in meetings, clusters citizen complaints by similarity, escalates overdue items automatically, and surfaces a weekly accountability digest. Now with full RAG integration for intelligent chat and strategic suggestions.
 
 ---
 
-## What Works (Proto3)
+## What Works (Finalé)
 
 ### Engines
 - **Commitment Engine** — Extracts commitments, questions, and action items from meeting transcripts using Gemini. Falls back gracefully if API key is missing — stores raw text, never crashes. Tracks deadlines, extensions, and resolution history.
@@ -30,7 +30,7 @@ AI-powered governance assistant for Indian elected representatives. Tracks commi
 
 ## RAG & Intelligence Layer
 
-Proto3 introduces a sophisticated RAG (Retrieval-Augmented Generation) architecture that grounds AI responses in live governance data.
+Finalé introduces a sophisticated RAG (Retrieval-Augmented Generation) architecture that grounds AI responses in live governance data.
 
 ### 1. 3-Layer Context Assembly
 The RAG Engine doesn't just "search for text." It assembles a comprehensive snapshot for every query:

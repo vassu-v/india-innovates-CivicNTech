@@ -1,6 +1,6 @@
-# RAG Engine: System Design (Proto3)
+# RAG Engine: System Design (Finalé)
 
-The RAG (Retrieval-Augmented Generation) Engine is the intelligence core of Co-Pilot Proto3. It enables grounded, data-driven conversations and strategic insights by synthesizing live governance state with historical facts.
+The RAG (Retrieval-Augmented Generation) Engine is the intelligence core of Co-Pilot Finalé. It enables grounded, data-driven conversations and strategic insights by synthesizing live governance state with historical facts.
 
 ## 1. Architectural Overview
 
@@ -60,4 +60,4 @@ Stores the 384-f32 embeddings for each node.
 Stores facts learned by the AI during chat sessions.
 
 ---
-*Document Version: 1.0.0 (Proto3)*
+*Document Version: 1.0.0 (Finalé)*
