@@ -20,11 +20,31 @@ AI-powered governance assistant for Indian elected representatives. Tracks commi
 | To-Do | Live — ranked by weight, complete/extend wired |
 | Commitments | Live — active list + resolved history |
 | Chat | Live — RAG powered assistant grounded in your data |
-| Suggestions | Live — AI-generated strategic insights based on live state |
 | Digest | Live — weekly breakdown with drilldown overlays |
 | Upload Meeting | Live — .txt transcript → Gemini batch extraction → To-Do |
 | Log Issue | Live — complaint → vector cluster → To-Do |
 | Profile | Live — persists to DB, loads on start. Cleaned of stale options. |
+
+---
+
+## RAG & Intelligence Layer
+
+Proto3 introduces a sophisticated RAG (Retrieval-Augmented Generation) architecture that grounds AI responses in live governance data.
+
+### 1. 3-Layer Context Assembly
+The RAG Engine doesn't just "search for text." It assembles a comprehensive snapshot for every query:
+- **Layer 1: Live Constituency State** — Dynamic stats from the Digest (resolution rates, critical counts), the MLA's Profile, and top pending To-Do items.
+- **Layer 2: Historical Facts & AI Memory** — Vector-retrieved documents from injected context files, completed commitment history, and "AI Memory" nodes.
+- **Layer 3: Live Patterns** — Real-time citizen complaint clusters from the Issue Engine.
+
+### 2. Local Semantic Router
+A zero-latency, zero-token router built into the backend. It classifies queries locally using embeddings:
+- **Instant Route:** Greets the user or handles small talk without hitting the LLM or Database.
+- **Follow-up Route:** Uses "Working Memory" (embeddings of previously retrieved nodes) to handle contextual follow-up questions efficiently.
+- **Search Route:** Triggers the full 3-Layer RAG pipeline for data-driven answers.
+
+### 3. AI Self-Memory
+The system has a feedback loop where the AI can "learn" and store new facts about the constituency or the MLA's preferences. If the LLM identifies a new pattern or preference, it generates a `[MEMORY]` tag, which the backend parses and stores in the `ai_memory` table for future retrieval.
 
 ### API Endpoints
 ```
@@ -37,7 +57,6 @@ GET  /api/meetings/recent         — recent processed meetings
 GET  /api/complaints/recent       — latest citizen complaints
 GET  /api/context/files           — injected context files
 GET  /api/profile                 — MLA profile
-GET  /api/suggestions             — AI-generated strategic suggestions
 POST /api/chat                    — intelligent RAG chat
 POST /api/complaint               — log citizen complaint → auto-cluster
 POST /api/item                    — add manual item

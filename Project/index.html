@@ -23,7 +23,6 @@
     <div class="nav-tab" onclick="go(this,'todo')">To-Do</div>
     <div class="nav-tab" onclick="go(this,'commitments')">Commitments</div>
     <div class="nav-tab" onclick="go(this,'chat')">Chat</div>
-    <div class="nav-tab" onclick="go(this,'suggestions')">Suggestions</div>
     <div class="nav-tab" onclick="go(this,'digest')">Digest</div>
     <div class="nav-tab" onclick="go(this,'upload')">Upload Meeting</div>
     <div class="nav-tab" onclick="go(this,'issues')">Log Issue</div>
@@ -117,18 +116,6 @@
         </div>
       </div>
 
-      <!-- SUGGESTIONS -->
-      <div class="home-card" onclick="goPage('suggestions')">
-        <div class="home-card-label">Strategic Suggestions <span>→</span></div>
-        <div id="home-suggestions-content">
-          <div style="color:#888;font-size:11px;padding:10px 0">AI is ready to analyze your latest governance data and provide strategic insights.</div>
-        </div>
-        <div style="margin-top:10px">
-          <button class="gen-btn" style="margin-bottom:0;font-size:9px;padding:7px 14px"
-            onclick="event.stopPropagation();showSug()">Generate now</button>
-        </div>
-      </div>
-
       <!-- COMPLAINT CLUSTERS -->
       <div class="home-card" onclick="goPage('issues')">
         <div class="home-card-label">Complaint clusters <span>→</span></div>
@@ -204,18 +191,6 @@
           placeholder="Ask about your constituency, commitments, patterns, or draft a response...">
         <button class="chat-send">Send</button>
       </div>
-    </div>
-  </div>
-
-  <!-- SUGGESTIONS -->
-  <div class="page" id="page-suggestions">
-    <div class="page-title">Suggestions</div>
-    <div class="page-sub">On demand only · AI thinks across all governance data when you ask</div>
-
-    <button class="gen-btn" id="sug-gen-btn" onclick="generateSuggestions()">Generate suggestions now</button>
-
-    <div id="sug-results" class="issue-list" style="display:none">
-      <!-- Real suggestions will be injected here -->
     </div>
   </div>
 

@@ -76,7 +76,7 @@ def needs_context(query, recent_node_embeddings=None):
         return "instant"
         
     # 2. Check Semantic Follow-up (Working Memory)
-    if recent_node_embeddings:
+    if recent_node_embeddings is not None and len(recent_node_embeddings) > 0:
         # Check if the query is very similar to any of the nodes we JUST retrieved
         for node_vec in recent_node_embeddings:
             if cosine_sim(q_vec, node_vec) > 0.75:
@@ -315,18 +315,6 @@ QUESTION:
         }
     except Exception as e:
         return {"response": f"Chat failed: {e}", "sources": [], "working_memory": []}
-
-def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None):
-    client = get_client()
-    if not client: return []
-    context = f"Profile: {profile}\nDigest: {digest}\nClusters: {clusters}\nTasks: {top_items}"
-    prompt = f"Based on this data, return a JSON array of 3 strategic suggestions (priority, title, body).\n\nDATA:\n{context}"
-    try:
-        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
-        raw = response.text.strip()
-        if "```json" in raw: raw = raw.split("```json")[1].split("```")[0]
-        return json.loads(raw.strip())
-    except: return []
 
 def truncate_db():
     db = get_db()
