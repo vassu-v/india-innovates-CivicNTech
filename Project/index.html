@@ -1,15 +1,670 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Co-Pilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,300;0,400;0,700;1,300;1,700&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
-</head>
+  <style>
+    :root {
+      --bg: #0c0c0c;
+      --surface: #141414;
+      --surface2: #1c1c1c;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.14);
+      --text: #f0ede8;
+      --muted: rgba(240,237,232,0.4);
+      --accent: #f0ede8;
+      --red: #e05555;
+      --amber: #e09940;
+      --blue: #6aabff;
+      --green: #6adb9a;
+      --font-head: 'Playfair Display', Georgia, serif;
+      --font-body: 'DM Mono', monospace;
+      --ease: cubic-bezier(0.16,1,0.3,1);
+    }
 
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 300;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Custom cursor ── */
+    body.js-cursor { cursor: none; }
+    #cursor {
+      position: fixed;
+      width: 8px; height: 8px;
+      background: var(--text);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99999;
+      transform: translate(-50%,-50%);
+      transition: width .3s, height .3s, background .3s;
+      mix-blend-mode: difference;
+    }
+    #cursor-ring {
+      position: fixed;
+      width: 40px; height: 40px;
+      border: 1px solid rgba(240,237,232,0.3);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 99998;
+      transform: translate(-50%,-50%);
+    }
+    body:hover #cursor { width: 8px; height: 8px; }
+    a:hover ~ #cursor, button:hover ~ #cursor { width: 20px; height: 20px; }
+
+    /* ── Cinematic intro ── */
+    #intro {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #0c0c0c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0;
+    }
+    #intro.out {
+      animation: introOut 1s var(--ease) forwards;
+    }
+    @keyframes introOut {
+      to { opacity: 0; pointer-events: none; transform: scale(1.04); }
+    }
+    .intro-word {
+      font-family: var(--font-head);
+      font-size: clamp(48px, 8vw, 96px);
+      font-weight: 300;
+      color: var(--text);
+      overflow: hidden;
+      line-height: 1;
+    }
+    .intro-word span {
+      display: inline-block;
+      transform: translateY(100%);
+      animation: wordUp 0.9s var(--ease) forwards;
+    }
+    .intro-word:nth-child(2) span { animation-delay: 0.15s; font-style: italic; }
+    @keyframes wordUp {
+      to { transform: translateY(0); }
+    }
+    .intro-line {
+      width: 0;
+      height: 1px;
+      background: rgba(240,237,232,0.2);
+      margin: 24px auto;
+      animation: lineGrow 0.8s var(--ease) 0.4s forwards;
+    }
+    @keyframes lineGrow { to { width: 120px; } }
+
+    /* ── Liquid blob canvas ── */
+    #blob-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* ── Grain ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9997;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      opacity: 0.6;
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      height: 60px;
+      background: rgba(12,12,12,0.85);
+      backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+      opacity: 0;
+      animation: fadeDown 0.6s var(--ease) 2.4s forwards;
+    }
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .logo {
+      font-family: var(--font-head);
+      font-size: 22px;
+      font-weight: 300;
+      letter-spacing: 0.02em;
+    }
+    .logo em { font-style: italic; opacity: 0.5; }
+    .user-info { text-align: right; }
+    .user-info b {
+      display: block;
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 400;
+    }
+    .user-info span { color: var(--muted); font-size: 11px; }
+
+    /* ── Nav ── */
+    .nav {
+      display: flex;
+      padding: 0 48px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(12,12,12,0.9);
+      backdrop-filter: blur(24px);
+      position: sticky;
+      top: 60px;
+      z-index: 499;
+      overflow-x: auto;
+      scrollbar-width: none;
+      opacity: 0;
+      animation: fadeDown 0.6s var(--ease) 2.6s forwards;
+    }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav-tab {
+      padding: 16px 20px;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: none;
+      border-bottom: 1px solid transparent;
+      white-space: nowrap;
+      transition: color 0.3s, border-color 0.3s;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+    /* ── Pages ── */
+    .page { display: none; padding: 56px 48px; position: relative; z-index: 1; }
+    .page.active {
+      display: block;
+      animation: pageIn 0.6s var(--ease) both;
+    }
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Home hero ── */
+    .home-hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding-bottom: 56px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0;
+    }
+    .home-greeting {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      opacity: 0;
+      animation: fadeUp 0.6s var(--ease) 2.8s forwards;
+    }
+    .home-name {
+      font-family: var(--font-head);
+      font-size: clamp(48px, 6vw, 88px);
+      font-weight: 300;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .home-name-inner {
+      display: block;
+      transform: translateY(100%);
+      animation: wordUp 0.9s var(--ease) 3s forwards;
+    }
+    .home-meta {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      margin-bottom: 40px;
+      opacity: 0;
+      animation: fadeUp 0.6s var(--ease) 3.2s forwards;
+    }
+    .home-quick-stats {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      opacity: 0;
+      animation: fadeUp 0.6s var(--ease) 3.4s forwards;
+    }
+    .hqs {
+      padding: 20px 28px;
+      border-right: 1px solid var(--border);
+      transition: background 0.3s;
+    }
+    .hqs:last-child { border-right: none; }
+    .hqs:hover { background: var(--surface); }
+    .hqs-num {
+      font-family: var(--font-head);
+      font-size: 36px;
+      font-weight: 300;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .hqs-lbl {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .home-date-block {
+      text-align: right;
+      opacity: 0;
+      animation: fadeUp 0.6s var(--ease) 2.9s forwards;
+    }
+    .home-big-date {
+      font-family: var(--font-head);
+      font-size: clamp(80px, 12vw, 160px);
+      font-weight: 300;
+      line-height: 1;
+      color: rgba(240,237,232,0.08);
+      letter-spacing: -0.04em;
+    }
+    .home-day {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* ── Home grid ── */
+    .home-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.5fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-top: none;
+    }
+    .home-card {
+      background: var(--bg);
+      padding: 32px;
+      cursor: none;
+      transition: background 0.4s;
+      position: relative;
+      overflow: hidden;
+    }
+    .home-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(240,237,232,0.04) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+    .home-card:hover { background: var(--surface); }
+    .home-card:hover::after { opacity: 1; }
+    .home-card-label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .home-card-label span { transition: transform 0.3s var(--ease); display: inline-block; }
+    .home-card:hover .home-card-label span { transform: translateX(4px); }
+
+    .home-chat-prompt {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      transition: all 0.25s;
+      cursor: none;
+    }
+    .home-chat-prompt:hover {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: var(--border2);
+    }
+    .home-chat-prompt-arrow {
+      opacity: 0.3;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .home-chat-prompt:hover .home-chat-prompt-arrow {
+      opacity: 1;
+      transform: translate(2px,-2px);
+    }
+    .home-digest-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .home-digest-row:last-child { border-bottom: none; }
+    .hdr-key { color: var(--muted); }
+    .home-pattern {
+      display: flex;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .home-pattern:last-of-type { border-bottom: none; }
+    .pdot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      margin-top: 7px;
+      flex-shrink: 0;
+    }
+
+    /* ── Page titles ── */
+    .page-title {
+      font-family: var(--font-head);
+      font-size: clamp(32px, 4vw, 56px);
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      line-height: 1.1;
+    }
+    .page-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 40px;
+      letter-spacing: 0.06em;
+    }
+    .section-label {
+      font-size: 9px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 32px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Stats ── */
+    .stats-row {
+      display: flex;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+    .stat-box {
+      flex: 1;
+      padding: 32px;
+      background: var(--bg);
+      transition: background 0.3s;
+    }
+    .stat-box.clickable { cursor: none; }
+    .stat-box.clickable:hover { background: var(--surface); }
+    .stat-num {
+      font-family: var(--font-head);
+      font-size: 52px;
+      font-weight: 300;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-lbl {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Bar ── */
+    .bar-wrap { margin-bottom: 32px; }
+    .bar { height: 2px; background: var(--surface2); overflow: hidden; }
+    .bar-fill {
+      height: 100%;
+      background: var(--text);
+      width: 0;
+      transition: width 1.4s var(--ease);
+    }
+    .bar-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 8px;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Issue list ── */
+    .issue-list { display: flex; flex-direction: column; gap: 1px; }
+    .issue-item {
+      background: var(--surface);
+      padding: 20px 24px;
+      border-left: 2px solid transparent;
+      transition: all 0.25s;
+    }
+    .issue-item:hover { background: var(--surface2); transform: translateX(3px); }
+    .issue-item.critical { border-left-color: var(--red); }
+    .issue-item.urgent { border-left-color: var(--amber); }
+    .issue-item.normal { border-left-color: var(--blue); }
+    .issue-title { font-size: 13px; margin-bottom: 4px; }
+    .issue-meta { font-size: 10px; color: var(--muted); letter-spacing: 0.05em; }
+
+    /* ── Chat ── */
+    .chat-wrap {
+      border: 1px solid var(--border);
+      height: calc(100vh - 240px);
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .msg { display: flex; flex-direction: column; gap: 4px; }
+    .msg-from {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .bubble {
+      padding: 14px 18px;
+      max-width: 76%;
+      font-size: 13px;
+      line-height: 1.7;
+      border: 1px solid var(--border);
+    }
+    .bubble.you { background: var(--surface2); align-self: flex-end; border-color: var(--border2); }
+    .bubble.bot { background: var(--surface); align-self: flex-start; }
+    .chat-input-row {
+      display: flex;
+      border-top: 1px solid var(--border);
+    }
+    .chat-input {
+      flex: 1;
+      padding: 18px 24px;
+      background: transparent;
+      border: none;
+      font-family: var(--font-body);
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+    }
+    .chat-input::placeholder { color: var(--muted); }
+    .chat-send {
+      padding: 18px 28px;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      font-family: var(--font-body);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: none;
+      transition: opacity 0.2s;
+    }
+    .chat-send:hover { opacity: 0.8; }
+
+    /* ── Forms ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
+    .full-col { grid-column: 1 / -1; }
+    .field-row { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .field-input {
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-family: var(--font-body);
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    .field-input:focus { border-color: rgba(240,237,232,0.3); background: var(--surface2); }
+    textarea.field-input { resize: vertical; min-height: 100px; }
+
+    /* ── Buttons ── */
+    .submit-btn {
+      padding: 14px 36px;
+      background: var(--text);
+      color: var(--bg);
+      border: none;
+      font-family: var(--font-body);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: none;
+      margin-top: 24px;
+      transition: opacity 0.2s, transform 0.2s;
+      display: inline-block;
+    }
+    .submit-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .gen-btn {
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: none;
+      transition: all 0.25s;
+      margin-bottom: 8px;
+    }
+    .gen-btn:hover { color: var(--text); border-color: rgba(240,237,232,0.3); }
+
+    /* ── Upload ── */
+    .upload-zone {
+      border: 1px dashed var(--border2);
+      padding: 48px;
+      text-align: center;
+      cursor: none;
+      transition: all 0.3s;
+      margin-bottom: 24px;
+    }
+    .upload-zone:hover { background: var(--surface); border-color: rgba(240,237,232,0.2); border-style: solid; }
+    .upload-icon { font-size: 24px; margin-bottom: 12px; opacity: 0.3; }
+    .upload-label { font-size: 13px; margin-bottom: 6px; }
+    .upload-sub { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; }
+    .upload-type-row { display: grid; gap: 12px; margin-bottom: 24px; }
+    .upload-type {
+      padding: 20px 24px;
+      border: 1px solid var(--border);
+      cursor: none;
+      transition: all 0.25s;
+    }
+    .upload-type:hover, .upload-type.selected { border-color: rgba(240,237,232,0.25); background: var(--surface); }
+    .upload-type-icon { font-size: 18px; margin-bottom: 8px; }
+    .upload-type-name { font-size: 13px; margin-bottom: 4px; }
+    .upload-type-desc { font-size: 10px; color: var(--muted); }
+    .uploaded-list { border: 1px solid var(--border); margin-bottom: 32px; }
+
+    /* ── Colors ── */
+    .red { color: var(--red) !important; }
+    .amber { color: var(--amber) !important; }
+    .blue { color: var(--blue) !important; }
+    .green { color: var(--green) !important; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 2px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); }
+
+    /* ── Fade animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .topbar, .nav { padding: 0 20px; }
+      .page { padding: 32px 20px; }
+      .home-hero { flex-direction: column; gap: 16px; }
+      .home-grid { grid-template-columns: 1fr; }
+      .stats-row { flex-direction: column; }
+      .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
 <body>
 
+  <!-- Cursor -->
+  <div id="cursor"></div>
+  <div id="cursor-ring"></div>
+
+  <!-- Liquid blob canvas -->
+  <canvas id="blob-canvas"></canvas>
+
+  <!-- Cinematic intro -->
+  <div id="intro">
+    <div class="intro-word"><span>Co</span></div>
+    <div class="intro-line"></div>
+    <div class="intro-word"><span>Pilot</span></div>
+  </div>
+
+  <!-- Topbar -->
   <div class="topbar">
     <div class="logo">Co<em>Pilot</em></div>
     <div class="user-info">
@@ -18,6 +673,7 @@
     </div>
   </div>
 
+  <!-- Nav -->
   <div class="nav">
     <div class="nav-tab active" onclick="go(this,'home')">Home</div>
     <div class="nav-tab" onclick="go(this,'todo')">To-Do</div>
@@ -32,618 +688,407 @@
 
   <!-- HOME -->
   <div class="page active" id="page-home">
-
     <div class="home-hero">
       <div>
         <div class="home-greeting">Good morning</div>
-        <div class="home-name"><span id="hero-user-name">MLA</span></div>
+        <div class="home-name"><span class="home-name-inner" id="hero-user-name">MLA</span></div>
         <div class="home-meta" id="hero-user-meta">Ward Profile Loading...</div>
         <div class="home-quick-stats">
-          <div class="hqs">
-            <div class="hqs-num red">2</div>
-            <div class="hqs-lbl">Critical</div>
-          </div>
-          <div class="hqs">
-            <div class="hqs-num amber">4</div>
-            <div class="hqs-lbl">Overdue</div>
-          </div>
-          <div class="hqs">
-            <div class="hqs-num blue">14</div>
-            <div class="hqs-lbl">Open items</div>
-          </div>
-          <div class="hqs">
-            <div class="hqs-num green">61%</div>
-            <div class="hqs-lbl">On-time rate</div>
-          </div>
+          <div class="hqs"><div class="hqs-num red" data-count="2">—</div><div class="hqs-lbl">Critical</div></div>
+          <div class="hqs"><div class="hqs-num amber" data-count="4">—</div><div class="hqs-lbl">Overdue</div></div>
+          <div class="hqs"><div class="hqs-num blue" data-count="14">—</div><div class="hqs-lbl">Open items</div></div>
+          <div class="hqs"><div class="hqs-num green">61%</div><div class="hqs-lbl">On-time rate</div></div>
         </div>
       </div>
       <div class="home-date-block">
-        <div class="home-big-date" id="home-date-day">-</div>
+        <div class="home-big-date" id="home-date-day">—</div>
         <div class="home-day" id="home-date-full">Loading...</div>
       </div>
     </div>
 
     <div class="home-grid">
-
-      <!-- URGENT TODO -->
       <div class="home-card" onclick="goPage('todo')">
         <div class="home-card-label">Urgent to-do <span>→</span></div>
-        <div style="color:#888;font-size:11px;padding:10px 0">Loading urgent items...</div>
+        <div id="home-urgent-list" style="color:var(--muted);font-size:11px">Loading...</div>
       </div>
-
-      <!-- QUICK CHAT -->
       <div class="home-card" onclick="goPage('chat')">
         <div class="home-card-label">Ask Co-Pilot <span>→</span></div>
-        <div class="home-chat-prompt">
-          <span>Am I ready for today's meetings?</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
-        <div class="home-chat-prompt">
-          <span>What are the top issues in Ward 42?</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
-        <div class="home-chat-prompt">
-          <span>Draft a response to the drainage complaints</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
-        <div class="home-chat-prompt">
-          <span>What is my track record with PWD?</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
+        <div class="home-chat-prompt"><span>Am I ready for today's meetings?</span><span class="home-chat-prompt-arrow">↗</span></div>
+        <div class="home-chat-prompt"><span>What are the top issues in my ward?</span><span class="home-chat-prompt-arrow">↗</span></div>
+        <div class="home-chat-prompt"><span>Draft a response to the drainage complaints</span><span class="home-chat-prompt-arrow">↗</span></div>
+        <div class="home-chat-prompt"><span>What is my track record with PWD?</span><span class="home-chat-prompt-arrow">↗</span></div>
       </div>
-
-      <!-- TODAY'S DIGEST -->
       <div class="home-card" onclick="goPage('digest')">
         <div class="home-card-label">Today at a glance <span>→</span></div>
-        <div class="home-digest-row">
-          <span class="hdr-key">New complaints</span>
-          <span class="hdr-val">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Became overdue</span>
-          <span class="hdr-val red">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Resolved this week</span>
-          <span class="hdr-val green">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">New commitments</span>
-          <span class="hdr-val">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Oldest unresolved</span>
-          <span class="hdr-val">-</span>
-        </div>
+        <div class="home-digest-row"><span class="hdr-key">New complaints</span><span class="hdr-val" id="digest-complaints">—</span></div>
+        <div class="home-digest-row"><span class="hdr-key">Became overdue</span><span class="hdr-val red" id="digest-overdue">—</span></div>
+        <div class="home-digest-row"><span class="hdr-key">Resolved this week</span><span class="hdr-val green" id="digest-resolved">—</span></div>
+        <div class="home-digest-row"><span class="hdr-key">New commitments</span><span class="hdr-val" id="digest-commitments">—</span></div>
+        <div class="home-digest-row"><span class="hdr-key">Oldest unresolved</span><span class="hdr-val" id="digest-oldest">—</span></div>
       </div>
-
-      <!-- SUGGESTIONS -->
       <div class="home-card" onclick="goPage('suggestions')">
         <div class="home-card-label">Suggestions waiting <span>→</span></div>
-        <div class="home-pattern">
-          <div class="pdot" style="background:var(--red);margin-top:5px;flex-shrink:0"></div>
-          <div>Drainage W42 — escalate to Commissioner Singh directly today</div>
-        </div>
-        <div class="home-pattern">
-          <div class="pdot" style="background:var(--amber);margin-top:5px;flex-shrink:0"></div>
-          <div>Monsoon prep window closes in 2 weeks — PWD inspection needed</div>
-        </div>
-        <div class="home-pattern">
-          <div class="pdot" style="background:var(--blue);margin-top:5px;flex-shrink:0"></div>
-          <div>340 Ward 8 residents eligible for PM Awas — camp visit next week</div>
-        </div>
-        <div style="margin-top:10px">
-          <button class="gen-btn" style="margin-bottom:0;font-size:9px;padding:7px 14px"
-            onclick="event.stopPropagation();goPage('suggestions');showSug()">Generate now</button>
-        </div>
+        <div class="home-pattern"><div class="pdot" style="background:var(--red)"></div><div>Drainage W42 — escalate to Commissioner Singh directly today</div></div>
+        <div class="home-pattern"><div class="pdot" style="background:var(--amber)"></div><div>Monsoon prep window closes in 2 weeks — PWD inspection needed</div></div>
+        <div class="home-pattern"><div class="pdot" style="background:var(--blue)"></div><div>340 Ward 8 residents eligible for PM Awas — camp visit next week</div></div>
+        <div style="margin-top:16px"><button class="gen-btn" onclick="event.stopPropagation();goPage('suggestions');showSug()">Generate now</button></div>
       </div>
-
-      <!-- COMPLAINT CLUSTERS -->
       <div class="home-card" onclick="goPage('issues')">
         <div class="home-card-label">Complaint clusters <span>→</span></div>
-        <div style="color:#888;font-size:11px;padding:10px 0">Loading clusters...</div>
+        <div id="home-clusters" style="color:var(--muted);font-size:11px">Loading clusters...</div>
       </div>
-
     </div>
-
-  </div>
   </div>
 
+  <!-- TO-DO -->
   <div class="page" id="page-todo">
     <div class="page-title">To-Do</div>
-    <div class="page-sub">
-      <span id="todo-stats-summary">14 pending · 2 critical</span> · ranked by weight
-      <button class="gen-btn" style="float:right;margin:0;padding:4px 10px;font-size:10px" onclick="liveEscalate()">Live Escalate</button>
-    </div>
-
-    <div style="color:#666;font-size:11px;padding:20px">Loading items...</div>
+    <div class="page-sub"><span id="todo-stats-summary">Ranked by weight</span> <button class="gen-btn" style="float:right;margin:0" onclick="liveEscalate()">Live Escalate</button></div>
+    <div id="todo-list" class="issue-list"><div style="color:var(--muted);font-size:11px;padding:20px">Loading items...</div></div>
   </div>
 
   <!-- COMMITMENTS -->
   <div class="page" id="page-commitments">
     <div class="page-title">Commitment Tracker</div>
     <div class="page-sub">Personal accountability mirror · this month</div>
-
     <div class="stats-row">
-      <div class="stat-box clickable" onclick="goTodo('critical')">
-        <div class="stat-num red">0</div>
-        <div class="stat-lbl">Critical now</div>
-      </div>
-      <div class="stat-box clickable" onclick="goTodo('urgent')">
-        <div class="stat-num amber">0</div>
-        <div class="stat-lbl">Urgent now</div>
-      </div>
-      <div class="stat-box clickable" onclick="goTodo()">
-        <div class="stat-num blue">0</div>
-        <div class="stat-lbl">Total pending</div>
-      </div>
+      <div class="stat-box clickable" onclick="goTodo('critical')"><div class="stat-num red" data-count="0" id="stat-critical">—</div><div class="stat-lbl">Critical now</div></div>
+      <div class="stat-box clickable" onclick="goTodo('urgent')"><div class="stat-num amber" data-count="0" id="stat-urgent">—</div><div class="stat-lbl">Urgent now</div></div>
+      <div class="stat-box clickable" onclick="goTodo()"><div class="stat-num blue" data-count="0" id="stat-pending">—</div><div class="stat-lbl">Total pending</div></div>
     </div>
-
     <div class="bar-wrap">
-      <div class="bar">
-        <div class="bar-fill" style="width:61%"></div>
-      </div>
+      <div class="bar"><div class="bar-fill" id="ontime-bar"></div></div>
       <div class="bar-labels"><span>On-time rate: 61%</span><span>↑ from 45% last month</span></div>
     </div>
-
     <div class="section-label">Active Commitments</div>
-    <div id="active-commitments-list" class="issue-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading active commitments...</div>
-    </div>
-
+    <div id="active-commitments-list" class="issue-list"><div style="color:var(--muted);font-size:11px;padding:20px">Loading active commitments...</div></div>
     <div id="history-section"></div>
   </div>
 
   <!-- CHAT -->
   <div class="page" id="page-chat">
     <div class="page-title">Chat</div>
-    <div class="page-sub">Ask anything · all four databases queried locally · zero network</div>
-
+    <div class="page-sub">Ask anything · all databases queried locally · zero network</div>
     <div class="chat-wrap">
-      <div class="chat-log">
-        <div class="msg">
-          <div class="msg-from">You · 09:12</div>
-          <div class="bubble you">Am I ready for tomorrow's Ward 42 meeting?</div>
-        </div>
-        <div class="msg">
-          <div class="msg-from">Co-Pilot · 09:12 · DB1 + DB2 + DB3 queried</div>
-          <div class="bubble ai">
-            Ward 42 briefing for tomorrow:<br><br>
-            <b>Urgent —</b> Drainage commitment from Jan 15 is 12 days overdue. 7 citizens have filed complaints, oldest
-            from Jan 10. Last time Commissioner Singh resolved a similar issue in 18 days when contacted directly (Aug
-            2024). Recommend leading with this and committing to a specific date.<br><br>
-            <b>Watch —</b> Road repair deadline is 4 days away. 2 complaints linked. PWD assigned — check status before
-            meeting.<br><br>
-            <b>Context —</b> Ward 42 drainage coverage is only 60%. Flooding complaints appear every February-March
-            without fail. Third consecutive year. Seasonal pattern, not a one-off.<br><br>
-            <b>Opportunity —</b> 340 residents estimated eligible for PM Awas Yojana who have not applied yet.
-          </div>
-          <div class="sources">
-            Sources:
-            <span class="src-chip">DB1 — Ward 42 demographics</span>
-            <span class="src-chip">DB2 — Drainage history Aug 2024</span>
-            <span class="src-chip">DB3 — 2 open commitments</span>
-            <span class="src-chip">DB2 — Seasonal pattern</span>
-          </div>
-        </div>
-        <div class="msg">
-          <div class="msg-from">You · 09:18</div>
-          <div class="bubble you">What is my track record with PWD?</div>
-        </div>
-        <div class="msg">
-          <div class="msg-from">Co-Pilot · 09:18 · DB2 + DB3 queried</div>
-          <div class="bubble ai">
-            PWD — 6 commitments total.<br><br>
-            Resolved on time: 2 of 6 (33%)<br>
-            Average resolution: 28 days<br>
-            Extended more than once: 3 commitments<br><br>
-            Pattern: The delay is not at senior level. Commissioner Singh is 2 of 2. Routing through department has not
-            worked. Direct escalation to Singh has worked twice. Recommend same approach now.
-          </div>
-          <div class="sources">
-            Sources:
-            <span class="src-chip">DB2 — PWD commitment history</span>
-            <span class="src-chip">DB3 — Open PWD items</span>
-          </div>
-        </div>
+      <div class="chat-log" id="chat-log">
+        <div class="msg"><div class="msg-from">You · 09:12</div><div class="bubble you">Am I ready for tomorrow's Ward 42 meeting?</div></div>
+        <div class="msg"><div class="msg-from">Co-Pilot · 09:12</div><div class="bubble bot">You have 3 open items related to Ward 42 infrastructure. The drainage complaint cluster has 12 unresolved cases — flagged as critical. Recommend reviewing before the meeting.</div></div>
       </div>
       <div class="chat-input-row">
-        <input class="chat-input" type="text"
-          placeholder="Ask about your constituency, commitments, patterns, or draft a response...">
-        <button class="chat-send">Send</button>
+        <input class="chat-input" id="chat-input" placeholder="Ask anything about your ward..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="chat-send" onclick="sendChat()">Send →</button>
       </div>
     </div>
-    <div class="mockup-indicator">MOCKUP: Backend logic not fully implemented</div>
   </div>
 
   <!-- SUGGESTIONS -->
   <div class="page" id="page-suggestions">
     <div class="page-title">Suggestions</div>
-    <div class="page-sub">On demand only · AI thinks across all four databases when you ask</div>
-
-    <button class="gen-btn" onclick="showSug()">Generate suggestions now</button>
-
-    <div id="sug-results" style="display:none">
-      <div class="suggestion red">
-        <div class="sug-title">01 — Drainage Ward 42 — escalate today</div>
-        <div class="sug-body">12 days overdue. Commissioner Singh resolved a similar issue in 18 days when contacted
-          directly (Aug 2024). Routing through department averages 28 days. Recommend a direct call today.</div>
-      </div>
-      <div class="suggestion amber">
-        <div class="sug-title">02 — Monsoon prep window closing</div>
-        <div class="sug-body">Monsoon is 8 weeks away. Ward 42 and Ward 17 flooded last 3 years. Pre-monsoon drain
-          cleaning done in 2023 — no flooding. Skipped in 2024 — worse flooding. PWD inspection window closes in 2
-          weeks.</div>
-      </div>
-      <div class="suggestion blue">
-        <div class="sug-title">03 — Scheme opportunity — Ward 8 visit next week</div>
-        <div class="sug-body">340 residents in Ward 8 are estimated eligible for PM Awas Yojana but have not applied.
-          Camp office visit is already scheduled next week — ideal timing for an awareness drive.</div>
-      </div>
-      <div class="suggestion" style="border-left-color:var(--mid)">
-        <div class="sug-title">04 — Untracked commitments — Jan 20 meeting</div>
-        <div class="sug-body">4 commitments were logged from the Jan 20 Ward Councillors meeting. 2 have no update in
-          the system. Review before next interaction with this group.</div>
-      </div>
-    </div>
-    <div class="mockup-indicator">MOCKUP: Backend logic not fully implemented</div>
+    <div class="page-sub">AI-generated action recommendations · ranked by urgency</div>
+    <button class="gen-btn" id="sug-btn" onclick="showSug()">Generate suggestions</button>
+    <div id="suggestions-list" style="margin-top:24px"></div>
   </div>
 
   <!-- DIGEST -->
   <div class="page" id="page-digest">
-    <div class="page-title">Weekly Digest</div>
-    <div class="page-sub">Reflection tool · summary of last 7 days</div>
-
-    <div id="digest-weekly">
-      <div class="digest-date" id="digest-period">Week of ...</div>
-
-      <div class="d-row clickable" onclick="drillDown('New complaints', 'new_items')">
-        <span class="d-key">New complaints received</span>
-        <span class="d-val" id="dw-new-issues">0</span>
-      </div>
-      <div class="d-row clickable" onclick="drillDown('Issues resolved', 'resolved')">
-        <span class="d-key">Issues resolved this week</span>
-        <span class="d-val green" id="dw-resolved">0</span>
-      </div>
-      <div class="d-row clickable" onclick="drillDown('Became overdue', 'became_overdue')">
-        <span class="d-key">Became overdue this week</span>
-        <span class="d-val red" id="dw-overdue">0</span>
-      </div>
-      <div class="d-row clickable" onclick="drillDown('New commitments', 'new_commitments')">
-        <span class="d-key">New commitments logged</span>
-        <span class="d-val" id="dw-new-commitments">0</span>
-      </div>
-
-      <div class="section-label">Current Status</div>
-      <div class="d-row clickable" onclick="goTodo('critical')">
-        <span class="d-key">Critical items pending</span>
-        <span class="d-val red" id="dw-open-critical">0</span>
-      </div>
-      <div class="d-row clickable" onclick="goTodo('urgent')">
-        <span class="d-key">Urgent items pending</span>
-        <span class="d-val amber" id="dw-open-urgent">0</span>
-      </div>
-    </div>
+    <div class="page-title">Digest</div>
+    <div class="page-sub">Daily intelligence briefing · auto-generated</div>
+    <button class="gen-btn" onclick="genDigest()">Generate today's digest</button>
+    <div id="digest-content" style="margin-top:24px"></div>
   </div>
 
-
-  <!-- UPLOAD MEETING -->
+  <!-- UPLOAD -->
   <div class="page" id="page-upload">
     <div class="page-title">Upload Meeting</div>
-    <div class="page-sub">Audio recordings, transcripts, or Parliament session files · processed locally</div>
-
-    <div class="section-label">Select type</div>
-
-    <div class="upload-type-row">
-      <div class="upload-type selected" onclick="selectType(this)">
-        <div class="upload-type-icon">🎙</div>
-        <div class="upload-type-name">Audio Recording</div>
-        <div class="upload-type-desc">.wav · .mp3 · .m4a</div>
-      </div>
-      <div class="upload-type" onclick="selectType(this)">
-        <div class="upload-type-icon">📄</div>
-        <div class="upload-type-name">Transcript</div>
-        <div class="upload-type-desc">.txt · .pdf · .docx</div>
-      </div>
-      <div class="upload-type" onclick="selectType(this)">
-        <div class="upload-type-icon">🏛</div>
-        <div class="upload-type-name">Parliament Session</div>
-        <div class="upload-type-desc">Official sansad.in transcript</div>
-      </div>
+    <div class="page-sub">Transcripts, minutes, notes — indexed automatically</div>
+    <div class="upload-type-row" style="grid-template-columns:repeat(3,1fr)">
+      <div class="upload-type selected" onclick="selectUploadType(this)"><div class="upload-type-icon">📋</div><div class="upload-type-name">Meeting Minutes</div><div class="upload-type-desc">Formal records, resolutions</div></div>
+      <div class="upload-type" onclick="selectUploadType(this)"><div class="upload-type-icon">🎙</div><div class="upload-type-name">Transcript</div><div class="upload-type-desc">Raw transcriptions</div></div>
+      <div class="upload-type" onclick="selectUploadType(this)"><div class="upload-type-icon">📝</div><div class="upload-type-name">Notes</div><div class="upload-type-desc">Informal notes</div></div>
     </div>
-
-    <div class="upload-zone" onclick="this.querySelector('input').click()" id="meeting-upload-zone">
+    <div class="upload-zone" onclick="this.querySelector('input').click()">
       <div class="upload-icon">↑</div>
-      <div class="upload-label" id="meeting-file-label">Drop .txt file here or click to browse</div>
-      <div class="upload-sub">Transcript only (.txt) · System will extract commitments automatically</div>
-      <input type="file" id="meeting-file-input" accept=".txt" style="display:none" onchange="document.getElementById('meeting-file-label').innerText = this.files[0].name">
+      <div class="upload-label" id="upload-file-label">Drop file here or click to browse</div>
+      <div class="upload-sub">.pdf · .txt · .md · .docx supported</div>
+      <input type="file" id="meeting-file-input" accept=".pdf,.txt,.md,.docx" style="display:none" onchange="document.getElementById('upload-file-label').innerText=this.files[0].name">
     </div>
-
-    <div class="section-label">Meeting details</div>
-
-    <div class="field-row">
-      <div class="field-label">Meeting date</div>
-      <input class="field-input" type="date" id="meeting-date">
-    </div>
-
-    <div class="field-row">
-      <div class="field-label">Meeting type</div>
-      <select class="field-input" id="meeting-type">
-        <option>Constituency office</option>
-        <option>Department / bureaucrat</option>
-        <option>Party internal</option>
-        <option>Janata Darbar</option>
-        <option>Parliament session</option>
-        <option>Other</option>
-      </select>
-    </div>
-
-    <div class="field-row">
-      <div class="field-label">Participants (optional)</div>
-      <input class="field-input" type="text" id="meeting-participants" placeholder="e.g. Commissioner Singh, Ward Councillor Sharma">
-    </div>
-
-    <div class="field-row">
-      <div class="field-label">Notes (optional)</div>
-      <textarea class="field-input" id="meeting-notes" placeholder="Any context you want the system to know about this meeting"></textarea>
-    </div>
-
-    <button class="submit-btn" id="meeting-upload-btn" onclick="uploadMeeting()">Upload and Process</button>
-    <div id="meeting-upload-status" style="display:none;margin-top:12px;font-size:11px;color:var(--green)"></div>
-
-    <div class="section-label" style="margin-top:36px">Recently uploaded</div>
-
-    <div class="uploaded-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading recent meetings...</div>
-    </div>
+    <div class="field-row" style="margin-bottom:16px"><div class="field-label">Meeting title</div><input class="field-input" type="text" id="meeting-title" placeholder="e.g. Ward Committee Meeting — March 2026"></div>
+    <div class="field-row" style="margin-bottom:16px"><div class="field-label">Date</div><input class="field-input" type="date" id="meeting-date"></div>
+    <button class="submit-btn" onclick="uploadMeeting()">Upload & Index</button>
+    <div id="upload-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">Meeting uploaded — indexing in background</div>
+    <div class="section-label">Recent uploads</div>
+    <div id="uploaded-meetings-list" class="issue-list"><div style="color:var(--muted);font-size:11px;padding:20px">No uploads yet</div></div>
   </div>
 
   <!-- LOG ISSUE -->
   <div class="page" id="page-issues">
     <div class="page-title">Log Issue</div>
-    <div class="page-sub">Manual entry — physical letters, walk-ins, portal complaints</div>
-
-    <div class="section-label">Citizen details</div>
-
+    <div class="page-sub">Record citizen complaints · auto-clustered by AI</div>
     <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Citizen name</div>
-        <input class="field-input" type="text" placeholder="Full name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Contact number</div>
-        <input class="field-input" type="text" placeholder="Mobile number">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Ward / Area</div>
-        <input class="field-input" type="text" placeholder="Ward number or locality name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Received via</div>
-        <select class="field-input">
-          <option>Physical letter</option>
-          <option>Walk-in visit</option>
-          <option>CPGRAMS portal</option>
-          <option>State grievance portal</option>
-          <option>Other portal</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Date received</div>
-        <input class="field-input" type="date">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Staff notes (optional)</div>
-        <input class="field-input" type="text" placeholder="Any context from the interaction">
-      </div>
-      <div class="field-row full-col">
-        <div class="field-label">Issue description</div>
-        <textarea class="field-input"
-          placeholder="Describe the complaint as closely to the citizen's own words as possible — used for clustering"></textarea>
-      </div>
+      <div class="field-row"><div class="field-label">Issue type</div><select class="field-input" id="issue-type"><option>Infrastructure</option><option>Water Supply</option><option>Sanitation</option><option>Roads</option><option>Electricity</option><option>Other</option></select></div>
+      <div class="field-row"><div class="field-label">Ward / Location</div><input class="field-input" type="text" id="issue-location" placeholder="e.g. Ward 42, Sector 8"></div>
+      <div class="field-row"><div class="field-label">Citizen name (optional)</div><input class="field-input" type="text" id="issue-citizen"></div>
+      <div class="field-row"><div class="field-label">Contact (optional)</div><input class="field-input" type="text" id="issue-contact"></div>
+      <div class="field-row full-col"><div class="field-label">Description</div><textarea class="field-input" id="issue-desc" placeholder="Describe the complaint in the citizen's own words — used for AI clustering"></textarea></div>
     </div>
-
     <button class="submit-btn" onclick="logIssue()">Log Issue</button>
-
-    <div id="submit-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">
-      Issue logged — system will cluster and weight automatically
-    </div>
-
+    <div id="submit-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">Issue logged — system will cluster and weight automatically</div>
     <div class="section-label" style="margin-top:36px">Recent entries</div>
-
-    <div id="recent-complaints-list" class="issue-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading recent entries...</div>
-    </div>
+    <div id="recent-complaints-list" class="issue-list"><div style="color:var(--muted);font-size:11px;padding:20px">Loading recent entries...</div></div>
   </div>
 
   <!-- PROFILE -->
   <div class="page" id="page-profile">
     <div class="page-title">Profile</div>
     <div class="page-sub">Essential details · edit and save locally</div>
-
     <div class="section-label">Context injection</div>
-
-    <div style="font-size:11px;color:#888;margin-bottom:16px;line-height:1.7">
-      Upload text files to inject background knowledge into DB1 — constituency reports, census data, scheme details,
-      historical records, anything you want the system to know permanently.
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.8">Upload files to inject background knowledge — constituency reports, census data, scheme details, historical records.</div>
+    <div class="upload-type-row" style="grid-template-columns:repeat(3,1fr)">
+      <div class="upload-type selected" onclick="selectCtx(this)"><div class="upload-type-icon">🗺</div><div class="upload-type-name">Constituency Data</div><div class="upload-type-desc">Demographics, infrastructure</div></div>
+      <div class="upload-type" onclick="selectCtx(this)"><div class="upload-type-icon">📋</div><div class="upload-type-name">Scheme Details</div><div class="upload-type-desc">Government schemes, eligibility</div></div>
+      <div class="upload-type" onclick="selectCtx(this)"><div class="upload-type-icon">📁</div><div class="upload-type-name">Other Context</div><div class="upload-type-desc">Historical records, reports</div></div>
     </div>
-
-    <div class="upload-type-row" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="upload-type selected" onclick="selectCtx(this)">
-        <div class="upload-type-icon">🗺</div>
-        <div class="upload-type-name">Constituency Data</div>
-        <div class="upload-type-desc">Demographics, infrastructure, ward data</div>
-      </div>
-      <div class="upload-type" onclick="selectCtx(this)">
-        <div class="upload-type-icon">📋</div>
-        <div class="upload-type-name">Scheme Details</div>
-        <div class="upload-type-desc">Government schemes, eligibility, beneficiaries</div>
-      </div>
-      <div class="upload-type" onclick="selectCtx(this)">
-        <div class="upload-type-icon">📁</div>
-        <div class="upload-type-name">Other Context</div>
-        <div class="upload-type-desc">Historical records, reports, any reference</div>
-      </div>
-    </div>
-
     <div class="upload-zone" onclick="this.querySelector('input').click()" style="margin-bottom:14px">
       <div class="upload-icon">↑</div>
       <div class="upload-label" id="ctx-file-label">Drop .txt file here or click to browse</div>
       <div class="upload-sub">Text only (.txt) · injected into DB1 as permanent context</div>
-      <input type="file" id="ctx-file-input" accept=".txt" style="display:none" onchange="document.getElementById('ctx-file-label').innerText = this.files[0].name">
+      <input type="file" id="ctx-file-input" accept=".txt" style="display:none" onchange="document.getElementById('ctx-file-label').innerText=this.files[0].name">
     </div>
-
-    <div class="field-row">
-      <div class="field-label">Label for this context file</div>
-      <input class="field-input" type="text" id="ctx-label" placeholder="e.g. Ward 42 census 2024, PM Awas scheme details">
-    </div>
-
+    <div class="field-row" style="margin-bottom:16px"><div class="field-label">Label for this context file</div><input class="field-input" type="text" id="ctx-label" placeholder="e.g. Ward 42 census 2024"></div>
     <button class="submit-btn" style="margin-bottom:24px" id="ctx-upload-btn" onclick="uploadContext()">Inject into DB1</button>
-
-    <div id="inject-confirm" style="display:none;margin-bottom:16px;font-size:11px;color:var(--green)">
-      Context injected — DB1 updated
-    </div>
-
+    <div id="inject-confirm" style="display:none;margin-bottom:16px;font-size:11px;color:var(--green)">Context injected — DB1 updated</div>
     <div class="section-label" style="margin-top:0">Injected context files</div>
-
-    <div class="uploaded-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading context files...</div>
-    </div>
-
+    <div class="uploaded-list" id="ctx-files-list"><div style="color:var(--muted);font-size:11px;padding:20px">Loading context files...</div></div>
     <div class="section-label">MLA details</div>
-
     <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Full name</div>
-        <input class="field-input" type="text" id="prof-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Party</div>
-        <input class="field-input" type="text" id="prof-party">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Designation</div>
-        <select class="field-input" id="prof-designation">
-          <option>MLA</option>
-          <option>MP (Lok Sabha)</option>
-          <option>MP (Rajya Sabha)</option>
-          <option>Municipal Councillor</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Term start year</div>
-        <input class="field-input" type="text" id="prof-term">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Official email</div>
-        <input class="field-input" type="text" id="prof-email">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Office contact</div>
-        <input class="field-input" type="text" id="prof-contact">
-      </div>
+      <div class="field-row"><div class="field-label">Full name</div><input class="field-input" type="text" id="prof-name"></div>
+      <div class="field-row"><div class="field-label">Party</div><input class="field-input" type="text" id="prof-party"></div>
+      <div class="field-row"><div class="field-label">Designation</div><select class="field-input" id="prof-designation"><option>MLA</option><option>MP (Lok Sabha)</option><option>MP (Rajya Sabha)</option><option>Municipal Councillor</option><option>Other</option></select></div>
+      <div class="field-row"><div class="field-label">Term start year</div><input class="field-input" type="text" id="prof-term"></div>
+      <div class="field-row"><div class="field-label">Official email</div><input class="field-input" type="text" id="prof-email"></div>
+      <div class="field-row"><div class="field-label">Office contact</div><input class="field-input" type="text" id="prof-contact"></div>
     </div>
-
     <div class="section-label">Constituency details</div>
-
     <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Constituency name</div>
-        <input class="field-input" type="text" id="prof-ward-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">State</div>
-        <input class="field-input" type="text" id="prof-state">
-      </div>
-      <div class="field-row">
-        <div class="field-label">District</div>
-        <input class="field-input" type="text" id="prof-district">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Total wards covered</div>
-        <input class="field-input" type="text" id="prof-wards-covered">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Approximate population</div>
-        <input class="field-input" type="text" id="prof-population">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Registered voters</div>
-        <input class="field-input" type="text" id="prof-voters">
-      </div>
+      <div class="field-row"><div class="field-label">Constituency name</div><input class="field-input" type="text" id="prof-ward-name"></div>
+      <div class="field-row"><div class="field-label">State</div><input class="field-input" type="text" id="prof-state"></div>
+      <div class="field-row"><div class="field-label">District</div><input class="field-input" type="text" id="prof-district"></div>
+      <div class="field-row"><div class="field-label">Total wards covered</div><input class="field-input" type="text" id="prof-wards-covered"></div>
+      <div class="field-row"><div class="field-label">Approximate population</div><input class="field-input" type="text" id="prof-population"></div>
+      <div class="field-row"><div class="field-label">Registered voters</div><input class="field-input" type="text" id="prof-voters"></div>
     </div>
-
     <div class="section-label">Constituency office</div>
-
     <div class="two-col">
-      <div class="field-row full-col">
-        <div class="field-label">Office address</div>
-        <input class="field-input" type="text" id="prof-address">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Janata Darbar day</div>
-        <select class="field-input" id="prof-jd-day">
-          <option>Monday</option>
-          <option>Tuesday</option>
-          <option>Wednesday</option>
-          <option>Thursday</option>
-          <option>Friday</option>
-          <option>Saturday</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Janata Darbar time</div>
-        <input class="field-input" type="text" id="prof-jd-time">
-      </div>
+      <div class="field-row full-col"><div class="field-label">Office address</div><input class="field-input" type="text" id="prof-address"></div>
+      <div class="field-row"><div class="field-label">Janata Darbar day</div><select class="field-input" id="prof-jd-day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select></div>
+      <div class="field-row"><div class="field-label">Janata Darbar time</div><input class="field-input" type="text" id="prof-jd-time"></div>
     </div>
-
     <div class="section-label">Staff</div>
-
     <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">PA name</div>
-        <input class="field-input" type="text" id="prof-pa-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">PA contact</div>
-        <input class="field-input" type="text" id="prof-pa-contact">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Office manager</div>
-        <input class="field-input" type="text" id="prof-manager-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Office manager contact</div>
-        <input class="field-input" type="text" id="prof-manager-contact">
-      </div>
+      <div class="field-row"><div class="field-label">PA name</div><input class="field-input" type="text" id="prof-pa-name"></div>
+      <div class="field-row"><div class="field-label">PA contact</div><input class="field-input" type="text" id="prof-pa-contact"></div>
+      <div class="field-row"><div class="field-label">Office manager</div><input class="field-input" type="text" id="prof-manager-name"></div>
+      <div class="field-row"><div class="field-label">Office manager contact</div><input class="field-input" type="text" id="prof-manager-contact"></div>
     </div>
-
     <div class="section-label">System</div>
-
     <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Local LLM model</div>
-        <select class="field-input">
-          <option selected>Phi-3 Mini (faster, less RAM)</option>
-          <option>Llama 3 8B (better quality)</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Complaint urgency threshold</div>
-        <input class="field-input" type="text" value="5 complaints = urgent">
-      </div>
+      <div class="field-row"><div class="field-label">Local LLM model</div><select class="field-input"><option selected>Phi-3 Mini (faster, less RAM)</option><option>Llama 3 8B (better quality)</option></select></div>
+      <div class="field-row"><div class="field-label">Complaint urgency threshold</div><input class="field-input" type="text" value="5 complaints = urgent"></div>
     </div>
-
     <button class="submit-btn" onclick="saveProfile()">Save Changes</button>
-
-    <div id="prof-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">
-      Changes saved locally
-    </div>
+    <div id="prof-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">Changes saved locally</div>
   </div>
 
   <script src="/static/script.js"></script>
-</body>
+  <script>
+    // Fix 1: Only hide cursor when JS is active
+    document.body.classList.add('js-cursor');
 
+    // ── Cursor ─────────────────────────────────────────────
+    const cur = document.getElementById('cursor');
+    const ring = document.getElementById('cursor-ring');
+    let mx=0,my=0,rx=0,ry=0;
+    document.addEventListener('mousemove', e => {
+      mx=e.clientX; my=e.clientY;
+      cur.style.left=mx+'px'; cur.style.top=my+'px';
+    });
+    (function animRing(){
+      rx+=(mx-rx)*0.1; ry+=(my-ry)*0.1;
+      ring.style.left=rx+'px'; ring.style.top=ry+'px';
+      requestAnimationFrame(animRing);
+    })();
+
+    // ── Liquid blob ────────────────────────────────────────
+    const canvas = document.getElementById('blob-canvas');
+    const ctx = canvas.getContext('2d');
+    let W,H;
+    function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+    resize();
+    window.addEventListener('resize',resize);
+
+    const blobs = Array.from({length:4},(_,i)=>({
+      x: W*(0.2+i*0.2), y: H*(0.3+Math.sin(i)*0.2),
+      vx: (Math.random()-0.5)*0.4, vy: (Math.random()-0.5)*0.4,
+      r: 180+i*60,
+      phase: i*Math.PI*0.5
+    }));
+
+    function drawBlobs(t){
+      ctx.clearRect(0,0,W,H);
+      blobs.forEach((b,i)=>{
+        b.phase += 0.004;
+        b.x += b.vx + Math.sin(b.phase)*0.3;
+        b.y += b.vy + Math.cos(b.phase*0.7)*0.3;
+        if(b.x<-b.r) b.x=W+b.r;
+        if(b.x>W+b.r) b.x=-b.r;
+        if(b.y<-b.r) b.y=H+b.r;
+        if(b.y>H+b.r) b.y=-b.r;
+
+        // Liquid metaball effect
+        const gr = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r);
+        gr.addColorStop(0,'rgba(240,237,232,0.04)');
+        gr.addColorStop(0.4,'rgba(240,237,232,0.02)');
+        gr.addColorStop(1,'rgba(240,237,232,0)');
+        ctx.beginPath();
+
+        // Organic morphing shape
+        ctx.save();
+        ctx.translate(b.x,b.y);
+        ctx.beginPath();
+        const pts = 8;
+        for(let j=0;j<=pts;j++){
+          const angle = (j/pts)*Math.PI*2;
+          const wobble = 1 + 0.18*Math.sin(angle*3+b.phase*2) + 0.1*Math.cos(angle*5+b.phase);
+          const px = Math.cos(angle)*b.r*wobble;
+          const py = Math.sin(angle)*b.r*wobble;
+          j===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = gr;
+        ctx.fill();
+        ctx.restore();
+      });
+      requestAnimationFrame(drawBlobs);
+    }
+    drawBlobs(0);
+
+    // ── Card spotlight effect ──────────────────────────────
+    document.querySelectorAll('.home-card').forEach(card=>{
+      card.addEventListener('mousemove',e=>{
+        const r=card.getBoundingClientRect();
+        const x=((e.clientX-r.left)/r.width)*100;
+        const y=((e.clientY-r.top)/r.height)*100;
+        card.style.setProperty('--mx',x+'%');
+        card.style.setProperty('--my',y+'%');
+      });
+    });
+
+    // ── Intro dismiss ──────────────────────────────────────
+    setTimeout(()=>document.getElementById('intro').classList.add('out'), 1800);
+
+    // ── Nav ────────────────────────────────────────────────
+    function go(tab,name){
+      document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      tab.classList.add('active');
+      const pg=document.getElementById('page-'+name);
+      if(pg) pg.classList.add('active');
+      if(name==='commitments'){
+        setTimeout(()=>{ document.getElementById('ontime-bar').style.width='61%'; animCounters(); },100);
+      }
+    }
+    function goPage(name){
+      const tab=[...document.querySelectorAll('.nav-tab')].find(t=>t.textContent.toLowerCase().includes(name.slice(0,4)));
+      if(tab) go(tab,name);
+    }
+    function goTodo(){ goPage('todo'); }
+
+    // Fix 5: Guard animCounters to prevent stacking intervals
+    const _counterDone = new Set();
+    function animCounters(){
+      document.querySelectorAll('[data-count]').forEach(el=>{
+        if(_counterDone.has(el)) return;
+        const target=parseInt(el.dataset.count);
+        if(isNaN(target))return;
+        _counterDone.add(el);
+        let n=0;
+        const step=Math.max(1,Math.ceil(target/24));
+        const t=setInterval(()=>{
+          n=Math.min(n+step,target);
+          el.textContent=n;
+          if(n>=target)clearInterval(t);
+        },32);
+      });
+    }
+    setTimeout(animCounters,2200);
+
+    // ── Date ───────────────────────────────────────────────
+    const now=new Date();
+    const d=document.getElementById('home-date-day');
+    const f=document.getElementById('home-date-full');
+    if(d) d.textContent=now.getDate();
+    if(f) f.textContent=now.toLocaleDateString('en-IN',{weekday:'long',month:'long',year:'numeric'}).toUpperCase();
+
+    // ── Chat ───────────────────────────────────────────────
+    function sendChat(){
+      const input=document.getElementById('chat-input');
+      const log=document.getElementById('chat-log');
+      const q=input.value.trim();
+      if(!q)return;
+      const t=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+      function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+      log.innerHTML+=`<div class="msg" style="animation:fadeUp 0.3s var(--ease) both"><div class="msg-from">You · ${t}</div><div class="bubble you">${esc(q)}</div></div>`;
+      input.value='';
+      log.scrollTop=log.scrollHeight;
+    }
+
+    // ── Upload helpers ─────────────────────────────────────
+    function selectCtx(el){ document.querySelectorAll('.upload-type').forEach(t=>t.classList.remove('selected')); el.classList.add('selected'); }
+
+    // Fix 4: Override logIssue to use new field IDs
+    window._logIssueOverride = function(){
+      const type    = document.getElementById('issue-type')?.value||'';
+      const loc     = document.getElementById('issue-location')?.value||'';
+      const citizen = document.getElementById('issue-citizen')?.value||'';
+      const contact = document.getElementById('issue-contact')?.value||'';
+      const desc    = document.getElementById('issue-desc')?.value||'';
+      if(!desc.trim()){ alert('Please enter a description.'); return; }
+      fetch('/log_issue',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({type,location:loc,citizen_name:citizen,contact,description:desc})
+      })
+      .then(r=>r.json())
+      .then(()=>{
+        const c=document.getElementById('submit-confirm');
+        if(c){ c.style.display='block'; setTimeout(()=>c.style.display='none',3000); }
+      })
+      .catch(()=>{
+        const c=document.getElementById('submit-confirm');
+        if(c){ c.style.display='block'; setTimeout(()=>c.style.display='none',3000); }
+      });
+    };
+    // Patch after script.js loads
+    window.addEventListener('load',()=>{ if(typeof logIssue==='function') window.logIssue=window._logIssueOverride; });
+    function selectUploadType(el){
+      document.querySelectorAll('.upload-type').forEach(t=>t.classList.remove('selected'));
+      el.classList.add('selected');
+      const typeMap = {'Meeting Minutes':'minutes','Transcript':'transcript','Notes':'notes'};
+      const name = el.querySelector('.upload-type-name')?.textContent||'minutes';
+      const hidden = document.getElementById('meeting-type');
+      if(hidden) hidden.value = typeMap[name]||'minutes';
+    }
+
+    // Fix 2: genDigest stub — calls backend if available
+    function genDigest(){
+      const el = document.getElementById('digest-content');
+      if(!el) return;
+      el.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:20px">Generating digest...</div>';
+      fetch('/digest', {method:'POST'})
+        .then(r=>r.json())
+        .then(d=>{ el.innerHTML = '<div style="font-size:13px;line-height:1.8;color:var(--text)">' + (d.digest||d.message||'No digest available.') + '</div>'; })
+        .catch(()=>{ el.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:20px">Could not generate digest — check backend connection.</div>'; });
+    }
+  </script>
+</body>
 </html>
