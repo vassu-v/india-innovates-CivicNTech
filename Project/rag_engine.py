@@ -486,7 +486,7 @@ THINKING: [your analysis summary]
 
     current_round = 1
     try:
-        r1_response = client.models.generate_content(model='gemini-2.0-flash', contents=round_1_prompt).text.strip()
+        r1_response = client.models.generate_content(model='gemini-3-flash-preview', contents=round_1_prompt).text.strip()
         thinking_trace.append({"round": 1, "type": "analysis", "content": r1_response, "timestamp": datetime.datetime.now().isoformat()})
 
         if "TOOL_CALL:" in r1_response:
@@ -515,7 +515,7 @@ CURRENT DATA:
 You may call one more tool if needed, or proceed.
 Respond with TOOL_CALL or READY as before.
 """
-            r2_response = client.models.generate_content(model='gemini-2.0-flash', contents=round_2_prompt).text.strip()
+            r2_response = client.models.generate_content(model='gemini-3-flash-preview', contents=round_2_prompt).text.strip()
             thinking_trace.append({"round": 2, "type": "analysis", "content": r2_response, "timestamp": datetime.datetime.now().isoformat()})
             current_round = 2
 
@@ -558,7 +558,7 @@ Each object must have:
   title: max 8 words, specific and actionable
   body: 2-3 sentences referencing real data above
 """
-        final_response = client.models.generate_content(model='gemini-2.0-flash', contents=final_prompt).text.strip()
+        final_response = client.models.generate_content(model='gemini-3-flash-preview', contents=final_prompt).text.strip()
 
         if "```json" in final_response:
             final_response = final_response.split("```json")[1].split("```")[0].strip()
