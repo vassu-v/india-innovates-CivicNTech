@@ -330,7 +330,7 @@ QUESTION:
 {query}
 """
     try:
-        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+        response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=prompt)
         sources = [{"id": n["id"], "domain": n["domain"], "title": n["title"]} for n in nodes]
         # Include embeddings for frontend-to-backend "Working Memory" loop
         return {
@@ -344,12 +344,15 @@ QUESTION:
 def _execute_tool(tool_name, argument):
     db = get_db()
     try:
-        if tool_name == "get_ward_history":
+        if tool_name in ["get_ward_history", "get_ward_data"]:
             rows = db.execute("""
-                SELECT title, type, status, deadline, completed_at, urgency, to_whom, extension_count
-                FROM timely_items
-                WHERE ward = ?
-                ORDER BY created_at DESC LIMIT 10
+                SELECT title, status, deadline, raw_text 
+                FROM timely_items WHERE ward = ? ORDER BY deadline ASC
+            """, (argument,)).fetchall()
+        elif tool_name in ["get_active_commitments", "search_tasks"]:
+            rows = db.execute("""
+                SELECT title, deadline, urgency, to_whom 
+                FROM timely_items WHERE ward = ? AND status != 'completed' ORDER BY deadline ASC
             """, (argument,)).fetchall()
         elif tool_name == "get_department_track_record":
             rows = db.execute("""
@@ -380,7 +383,7 @@ def _execute_tool(tool_name, argument):
                 WHERE topic LIKE ?
                 ORDER BY created_at DESC LIMIT 5
             """, (f"%{argument}%",)).fetchall()
-        elif tool_name == "get_resolved_history":
+        elif tool_name in ["get_resolved_history", "get_resolution_trends"]:
             limit = int(argument) if argument and str(argument).isdigit() else 10
             rows = db.execute("""
                 SELECT title, to_whom, ward, deadline, completed_at, extension_count
@@ -388,6 +391,12 @@ def _execute_tool(tool_name, argument):
                 WHERE status = 'completed'
                 ORDER BY completed_at DESC LIMIT ?
             """, (limit,)).fetchall()
+        elif tool_name == "get_contact_list":
+            rows = db.execute("""
+                SELECT DISTINCT to_whom FROM timely_items WHERE to_whom IS NOT NULL
+                UNION
+                SELECT DISTINCT to_whom FROM clusters WHERE to_whom IS NOT NULL
+            """).fetchall()
         else:
             return f"Error: Tool {tool_name} not found."
 
@@ -437,7 +446,7 @@ def _build_suggestions_context(profile, digest, clusters, top_items):
 
     return ctx
 
-def run_suggestion_agent(profile=None, digest=None, clusters=None, top_items=None):
+def run_suggestion_agent(profile=None, digest=None, clusters=None, top_items=None, user_query=None, history=None):
     client = get_client()
     if not client:
         return {
@@ -448,45 +457,59 @@ def run_suggestion_agent(profile=None, digest=None, clusters=None, top_items=Non
         }
 
     always_on_context = _build_suggestions_context(profile, digest, clusters, top_items)
-    thinking_trace = []
-    tools_called = []
-    all_tool_results = []
+    
+    inquiry_block = ""
+    if user_query:
+        inquiry_block = f"\nSPECIFIC INQUIRY FROM MLA: \"{user_query}\"\nFocus your analysis and suggestions specifically on this topic while considering the overall data context."
 
+    thinking_trace = history if history else []
+    tools_called = [t['tool'] for t in thinking_trace if t.get('tool')]
+    all_tool_results = [t['content'] for t in thinking_trace if t['type'] == 'tool_result']
+    all_thinking_prev = "\n".join([t['content'] for t in thinking_trace if t['type'] == 'analysis'])
+
+    # If this is a follow-up, provide session context
+    session_context = ""
+    if history:
+        session_context = f"\nPREVIOUS SESSION THINKING:\n{all_thinking_prev}\n\nPREVIOUS TOOL RESULTS:\n" + "\n".join(all_tool_results)
+    
     # Round 1
-    round_1_prompt = f"""You are a strategic advisor analysing governance data for an Indian MLA.
-You have access to read-only database tools.
-Maximum tool calls across all rounds: 3.
+    round_1_prompt = f"""You are a STRATEGIC ADVISOR for an Indian MLA.
 
-AVAILABLE TOOLS:
-get_ward_history(ward) — full history for a ward
-get_department_track_record(department) — dept reliability data
-get_overdue_items(urgency) — full overdue list by urgency level
-get_complaint_cluster_detail(cluster_id) — detail on a complaint cluster
-get_ai_memory(topic_keyword) — search AI memory notes
-get_resolved_history(limit) — recent resolution patterns
+STRICT TOOL POLICY:
+Only use the tools listed below. ANY OTHER TOOL NAME WILL FAIL.
+1. get_ward_data(ward) — history and current status
+2. get_active_commitments(ward) — current open tasks
+3. get_department_track_record(department) — dept reliability
+4. get_overdue_items(urgency) — full overdue list
+5. get_complaint_cluster_detail(cluster_id) — detail on cluster
+6. get_ai_memory(topic_keyword) — search memory
+7. get_resolved_history(limit) — recent resolution patterns (use for trends)
+8. get_contact_list() — unique departments and contacts
 
 CURRENT DATA:
 {always_on_context}
+{inquiry_block}
+{session_context}
 
 TASK:
-Analyse the current situation. Identify the most pressing issues.
-If you need specific historical data to give a better recommendation,
-call a tool. If you have enough to proceed, say READY.
+1. Analyse the data. Identify pressing issues and SYSTEMIC PATTERNS.
+2. CRITICAL: If 'SPECIFIC INQUIRY FROM MLA' is provided, your reasoning MUST focus entirely on that inquiry.
+3. CRITICAL: If NO inquiry is provided (AUTONOMOUS MODE), do NOT just list the top 4 pending tasks. Instead, find hidden ward-specific trends, departmental bottlenecks, or recurring complaint types. Identify what the MLA should HIGHLIGHT for long-term governance.
+4. If this is a follow-up, do not repeat results. Build upon the previous thinking.
 
-Respond with EXACTLY one of these formats:
-
+Respond with EXACTLY:
 TOOL_CALL: tool_name | argument
-THINKING: [your reasoning for calling this tool]
+THINKING: [reasoning]
 
 OR
 
 READY
-THINKING: [your analysis summary]
+THINKING: [strategic highlights and pattern discovery]
 """
 
     current_round = 1
     try:
-        r1_response = client.models.generate_content(model='gemini-3-flash-preview', contents=round_1_prompt).text.strip()
+        r1_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=round_1_prompt).text.strip()
         thinking_trace.append({"round": 1, "type": "analysis", "content": r1_response, "timestamp": datetime.datetime.now().isoformat()})
 
         if "TOOL_CALL:" in r1_response:
@@ -515,7 +538,7 @@ CURRENT DATA:
 You may call one more tool if needed, or proceed.
 Respond with TOOL_CALL or READY as before.
 """
-            r2_response = client.models.generate_content(model='gemini-3-flash-preview', contents=round_2_prompt).text.strip()
+            r2_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=round_2_prompt).text.strip()
             thinking_trace.append({"round": 2, "type": "analysis", "content": r2_response, "timestamp": datetime.datetime.now().isoformat()})
             current_round = 2
 
@@ -533,32 +556,32 @@ Respond with TOOL_CALL or READY as before.
                 current_round = 3
 
         # Final Generation
-        thinking_trace.append({"round": current_round, "type": "final", "content": "Sufficient context. Generating suggestions.", "timestamp": datetime.datetime.now().isoformat()})
-
-        all_thinking = "\n".join([t['content'] for t in thinking_trace if t['type'] == 'analysis'])
-        tool_results_str = "\n\n".join(all_tool_results)
-
+        inquiry_mode = "TRUE" if user_query else "FALSE"
         final_prompt = f"""ANALYSIS COMPLETE. Generate suggestions now.
 
 {always_on_context}
 
-TOOL RESULTS FROM ANALYSIS:
+TOOL RESULTS:
 {tool_results_str}
 
 ANALYSIS SUMMARY:
 {all_thinking}
 
+TASK:
 Generate 3-4 specific, actionable suggestions.
-Every suggestion must reference actual data from the context above.
-No generic advice. No hallucinated statistics.
+INQUIRY MODE: {inquiry_mode}
+SPECIFIC INQUIRY: {user_query}
 
-Return a JSON array only. No markdown. No explanation.
-Each object must have:
-  priority: "critical" | "urgent" | "normal"
-  title: max 8 words, specific and actionable
-  body: 2-3 sentences referencing real data above
+CRITICAL RULES:
+1. If INQUIRY MODE is TRUE, every suggestion MUST directly address the SPECIFIC INQUIRY.
+2. If INQUIRY MODE is FALSE (AUTONOMOUS), your suggestions should focus on PATTERN HIGHLIGHTING and STRATEGIC OVERSIGHT. Show the MLA what they missed in the raw data.
+3. If this is a follow-up (history exists), DO NOT repeat titles or content from previous rounds. Append NEW, refined insights.
+4. Reference real data from the context and tool results. No fluff.
+
+Return a JSON array only. No markdown.
+Each object: {{ "priority": "...", "title": "...", "body": "..." }}
 """
-        final_response = client.models.generate_content(model='gemini-3-flash-preview', contents=final_prompt).text.strip()
+        final_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=final_prompt).text.strip()
 
         if "```json" in final_response:
             final_response = final_response.split("```json")[1].split("```")[0].strip()
@@ -584,8 +607,8 @@ Each object must have:
             "tools_called": tools_called
         }
 
-def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None):
-    return run_suggestion_agent(profile, digest, clusters, top_items)
+def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None, user_query=None, history=None):
+    return run_suggestion_agent(profile, digest, clusters, top_items, user_query, history)
 
 def truncate_db():
     db = get_db()
