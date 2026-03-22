@@ -76,7 +76,7 @@ def chat(req: ChatRequest):
         if route == "instant":
             client = rag_engine.get_client()
             res = client.models.generate_content(
-                model='gemini-3-flash-preview', 
+                model='models/gemini-3-flash-preview', 
                 contents=f"You are Co-Pilot. Answer the user's greeting or general question warmly. Query: {req.query}"
             )
             return {"response": res.text.strip(), "sources": [], "routed": "instant"}
@@ -249,9 +249,15 @@ async def upload_context(
 def get_context_files():
     return commitment_engine.get_context_files()
 
-@app.get("/api/suggestions")
-def get_suggestions():
+class SuggestionsRequest(BaseModel):
+    query: Optional[str] = None
+    history: Optional[List[dict]] = None
+
+@app.post("/api/suggestions")
+def get_suggestions(req: Optional[SuggestionsRequest] = None):
     try:
+        query = req.query if req else None
+        history = req.history if req else None
         profile = commitment_engine.get_profile()
         digest = digest_engine.get_digest()
         db = issue_engine.get_db()
@@ -266,7 +272,9 @@ def get_suggestions():
             profile=profile,
             digest=digest,
             clusters=cluster_list,
-            top_items=top_items
+            top_items=top_items,
+            user_query=query,
+            history=history
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

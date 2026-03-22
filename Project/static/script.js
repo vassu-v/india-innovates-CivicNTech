@@ -655,56 +655,55 @@ async function loadRecentComplaints() {
   }
 }
 
+let currentSuggestionsTrace = [];
 
+async function generateSuggestions(autoThink = false) {
+  const qInput = document.getElementById('sug-query');
+  if (autoThink && qInput) qInput.value = ""; // Clear for autonomous mode
+  const query = qInput ? qInput.value.trim() : null;
 
-async function generateSuggestions() {
   const btn = document.getElementById('sug-gen-btn');
+  const autoBtn = document.getElementById('sug-auto-btn');
   const resultsDiv = document.getElementById('sug-results');
   const traceContainer = document.getElementById('sug-trace-container');
   const traceContent = document.getElementById('trace-content');
   const traceSummary = document.getElementById('trace-summary');
+  const followupArea = document.getElementById('sug-followup-area');
 
-  btn.innerText = 'Analysing... (may take 15s)';
+  const mainBtnText = btn.innerText;
+  btn.innerText = 'Analysing...';
   btn.disabled = true;
+  if (autoBtn) autoBtn.disabled = true;
+
   resultsDiv.innerHTML = '';
   resultsDiv.style.display = 'none';
   traceContainer.style.display = 'none';
-  traceContent.style.display = 'none';
+  followupArea.style.display = 'none';
+  
+  currentSuggestionsTrace = [];
 
   try {
-    const data = await fetchData('/api/suggestions');
-    if (data && data.suggestions && data.suggestions.length > 0) {
-      // Render Suggestions
-      resultsDiv.innerHTML = data.suggestions.map((s, idx) => `
-        <div class="suggestion ${s.priority || 'normal'}">
-          <div class="sug-title">0${idx + 1} — ${escapeHtml(s.title)}</div>
-          <div class="sug-body">${markdownToHtml(s.body)}</div>
-        </div>
-      `).join('');
-      resultsDiv.style.display = 'block';
-
-      // Render Thinking Trace
-      if (data.thinking_trace) {
-        traceSummary.innerText = data.context_summary || 'Analysis complete';
-        traceContent.innerHTML = data.thinking_trace.map(t => `
-          <div class="trace-entry">
-            <div class="trace-meta">Round ${t.round} · ${t.type} · ${new Date(t.timestamp).toLocaleTimeString()}</div>
-            <div class="trace-text">${escapeHtml(t.content)}</div>
-            ${t.tool ? `<div class="trace-tool">Tool: ${t.tool}(${t.args})</div>` : ''}
-          </div>
-        `).join('');
-        traceContainer.style.display = 'block';
-      }
+    const data = await fetchData('/api/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query || null })
+    });
+    
+    if (data && data.suggestions) {
+      currentSuggestionsTrace = data.thinking_trace || [];
+      renderSuggestions(data.suggestions, false);
+      renderThinkingTrace(data);
+      followupArea.style.display = 'block';
     } else {
-      resultsDiv.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No suggestions generated. Make sure your GEMINI_API_KEY is set.</div>';
+      resultsDiv.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No suggestions generated.</div>';
       resultsDiv.style.display = 'block';
     }
   } catch (e) {
-    resultsDiv.innerHTML = '<div style="color:var(--red);font-size:11px;padding:20px">Failed to generate suggestions.</div>';
-    resultsDiv.style.display = 'block';
+    console.error(e);
   } finally {
-    btn.innerText = 'Generate suggestions now';
+    btn.innerText = mainBtnText;
     btn.disabled = false;
+    if (autoBtn) autoBtn.disabled = false;
   }
 }
 
@@ -850,6 +849,119 @@ async function sendChat() {
   log.scrollTop = log.scrollHeight;
 }
 
+async function sendSuggestionsFollowup() {
+  const input = document.getElementById('sug-chat-input');
+  const query = input.value.trim();
+  if (!query) return;
+
+  const resultsDiv = document.getElementById('sug-results');
+  const traceSummary = document.getElementById('trace-summary');
+  
+  traceSummary.innerText = 'Refining analysis...';
+  // UI indicator
+  const btn = document.querySelector('#sug-followup-area .gen-btn');
+  btn.innerText = 'Refining...';
+  btn.disabled = true;
+
+  try {
+    const data = await fetchData('/api/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        query: query,
+        history: currentSuggestionsTrace
+      })
+    });
+
+    if (data && data.suggestions) {
+      // Append new suggestions
+      renderSuggestions(data.suggestions, true);
+      // Update global trace
+      currentSuggestionsTrace = data.thinking_trace || [];
+      renderThinkingTrace(data);
+    }
+  } catch (e) {
+    console.error(e);
+  } finally {
+    btn.innerText = 'Analyze & Append';
+    btn.disabled = false;
+    input.value = '';
+    input.focus();
+  }
+}
+
+function renderSuggestions(suggestions, append) {
+  const resultsDiv = document.getElementById('sug-results');
+  const html = suggestions.map((s, idx) => `
+    <div class="suggestion ${s.priority || 'normal'}" style="animation: fadeIn 0.5s ease-out">
+      <div class="sug-title">${append ? 'REFINED' : '0' + (idx+1)} — ${escapeHtml(s.title)}</div>
+      <div class="sug-body">${markdownToHtml(s.body)}</div>
+    </div>
+  `).join('');
+  
+  if (append) {
+    resultsDiv.innerHTML += `<div class="section-label" style="margin: 20px 0">Refined Insights</div>` + html;
+  } else {
+    resultsDiv.innerHTML = html;
+  }
+  
+  // Bridge Button: Take to Chat
+  if (!document.getElementById('sug-chat-bridge')) {
+    const bridge = document.createElement('div');
+    bridge.id = 'sug-chat-bridge';
+    bridge.style.padding = "20px 0";
+    bridge.innerHTML = `
+      <button class="gen-btn btn-alt" style="width: auto; padding: 10px 25px; margin: 0 auto; display: block;" onclick="transferSuggestionsToChat()">
+        Take this Conversation to Chat →
+      </button>
+    `;
+    resultsDiv.appendChild(bridge);
+  }
+
+  resultsDiv.style.display = 'block';
+}
+
+function renderThinkingTrace(data) {
+  const traceContainer = document.getElementById('sug-trace-container');
+  const traceContent = document.getElementById('trace-content');
+  const traceSummary = document.getElementById('trace-summary');
+
+  if (data.thinking_trace) {
+    traceSummary.innerText = data.context_summary || 'Analysis complete';
+    traceContent.innerHTML = data.thinking_trace.map(t => `
+      <div class="trace-entry">
+        <div class="trace-meta">Round ${t.round} · ${t.type} · ${new Date(t.timestamp).toLocaleTimeString()}</div>
+        <div class="trace-text">${escapeHtml(t.content)}</div>
+        ${t.tool ? `<div class="trace-tool">Tool: ${t.tool}(${t.args})</div>` : ''}
+      </div>
+    `).join('');
+    traceContainer.style.display = 'block';
+  }
+}
+
+async function transferSuggestionsToChat() {
+  const thinking = currentSuggestionsTrace.map(t => t.content).join("\n\n");
+  const log = document.querySelector('.chat-log');
+  
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const bridgeMsg = document.createElement('div');
+  bridgeMsg.className = 'msg';
+  bridgeMsg.innerHTML = `
+    <div class="msg-from">Co-Pilot · System Bridge · ${time}</div>
+    <div class="bubble ai" style="border-left: 4px solid var(--accent); font-size: 0.9em; opacity: 0.9;">
+      <strong>Strategic Context Transferred:</strong> I have imported the thinking trace and patterns from your Suggestions analysis. How should we proceed with these insights?
+    </div>
+  `;
+  log.appendChild(bridgeMsg);
+  
+  // Inject into working memory if possible, or just pre-set input
+  const input = document.querySelector('.chat-input');
+  input.value = "Let's discuss the strategic patterns you just found.";
+  
+  goPage('chat');
+  input.focus();
+}
+
 // Wire up chat event listeners
 document.addEventListener('DOMContentLoaded', () => {
   const sendBtn = document.querySelector('.chat-send');
@@ -858,4 +970,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (input) {
     input.onkeypress = (e) => { if (e.key === 'Enter') sendChat(); };
   }
+  
+  // Suggestions Enter Listeners
+  const sugQuery = document.getElementById('sug-query');
+  if (sugQuery) {
+    sugQuery.onkeypress = (e) => { if (e.key === 'Enter') generateSuggestions(); };
+  }
+  const sugChat = document.getElementById('sug-chat-input');
+  if (sugChat) {
+    sugChat.onkeypress = (e) => { if (e.key === 'Enter') sendSuggestionsFollowup(); };
+  }
+
+  // Auto-Think button
+  const autoBtn = document.getElementById('sug-auto-btn');
+  if (autoBtn) autoBtn.onclick = () => generateSuggestions(true);
 });

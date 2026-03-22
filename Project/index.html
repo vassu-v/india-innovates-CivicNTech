@@ -210,9 +210,14 @@
   <!-- SUGGESTIONS -->
   <div class="page" id="page-suggestions">
     <div class="page-title">Suggestions</div>
-    <div class="page-sub">On demand only · AI thinks across all governance data when you ask</div>
-
-    <button class="gen-btn" id="sug-gen-btn" onclick="generateSuggestions()">Generate suggestions now</button>
+    <div class="page-sub">Interactive Strategic Analyst · models/gemini-3-flash-preview</div>
+    <div class="sug-input-wrap">
+      <input type="text" id="sug-query" placeholder="Ask for specific strategic analysis... (e.g. 'How can I fix the drainage crisis in Ward 42?')">
+      <div class="sug-btn-group">
+        <button class="gen-btn" id="sug-gen-btn" onclick="generateSuggestions()">Analyze Focused Query</button>
+        <button class="gen-btn btn-alt" id="sug-auto-btn" onclick="generateSuggestions(true)">Analyze on Own (Auto-Think)</button>
+      </div>
+    </div>
 
     <div id="sug-trace-container" style="display:none; margin-bottom: 20px;">
         <div class="trace-dropdown">
@@ -228,6 +233,14 @@
 
     <div id="sug-results" class="issue-list" style="display:none">
       <!-- Real suggestions will be injected here -->
+    </div>
+
+    <div id="sug-followup-area" style="display:none; border-top: 1px solid var(--mid); padding-top: 24px; margin-top: 30px;">
+      <div class="section-label">Refine Strategic Analysis</div>
+      <div class="sug-input-wrap" style="background: var(--paper); border: 2px solid var(--ink);">
+        <input type="text" id="sug-chat-input" placeholder="Ask a follow-up or refine these suggestions...">
+        <button class="gen-btn" style="margin-bottom:0" onclick="sendSuggestionsFollowup()">Analyze & Append</button>
+      </div>
     </div>
   </div>
 
