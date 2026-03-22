@@ -62,14 +62,14 @@ def needs_context(query, recent_node_embeddings=None):
     q_vec = model.encode([query.lower()])[0]
     
     def cosine_sim(a, b):
-        return (a @ b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-    try:
-        import numpy as np
-    except ImportError:
-        def norm(v): return sum(x*x for x in v)**0.5
-        def dot(v1, v2): return sum(x*y for x,y in zip(v1, v2))
-        def cosine_sim(a, b): return dot(a, b) / (norm(a) * norm(b))
+        # Handle cases where b might be None or empty
+        if b is None or len(b) == 0: return 0
+        a = np.array(a)
+        b = np.array(b)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        if norm_a == 0 or norm_b == 0: return 0
+        return (a @ b) / (norm_a * norm_b)
 
     # 1. Check Small Talk
     if cosine_sim(q_vec, iv["small_talk"]) > 0.65 or cosine_sim(q_vec, iv["thanks"]) > 0.65:
@@ -79,7 +79,7 @@ def needs_context(query, recent_node_embeddings=None):
     if recent_node_embeddings:
         # Check if the query is very similar to any of the nodes we JUST retrieved
         for node_vec in recent_node_embeddings:
-            if cosine_sim(q_vec, node_vec) > 0.75:
+            if node_vec is not None and cosine_sim(q_vec, node_vec) > 0.75:
                 return "follow-up"
 
     return "search"
@@ -189,6 +189,10 @@ def cosine_similarity(v1, v2):
     return sumxy / (math.sqrt(sumxx) * math.sqrt(sumyy))
 
 def query_nodes(query_text, limit=5, ward_filter=None):
+    """
+    Retrieves knowledge nodes using vector similarity.
+    Ensures 'embedding' is included in the node dict for working memory tracking.
+    """
     model = get_model()
     query_embedding = model.encode(query_text)
     query_bytes = serialize_f32(query_embedding.tolist())
@@ -198,8 +202,10 @@ def query_nodes(query_text, limit=5, ward_filter=None):
     
     nodes = []
     try:
+        # 1. Attempt using sqlite-vec (High Performance)
         sql = """
-            SELECT n.*, vec_distance_cosine(v.embedding, ?) as distance
+            SELECT n.id, n.domain, n.ward, n.topic, n.title, n.content, n.source_ref, n.created_at,
+                   v.embedding, vec_distance_cosine(v.embedding, ?) as distance
             FROM vec_knowledge v
             JOIN knowledge_nodes n ON v.node_id = n.id
         """
@@ -215,28 +221,47 @@ def query_nodes(query_text, limit=5, ward_filter=None):
         for r in rows:
             node = dict(r)
             node['similarity'] = 1.0 - r['distance']
+            # Unpack embedding BLOB to list of floats for JSON serialization
+            if r['embedding']:
+                emb_data = r['embedding']
+                node['embedding'] = list(struct.unpack(f"{len(emb_data)//4}f", emb_data))
+            else:
+                node['embedding'] = None
             nodes.append(node)
             
-    except (sqlite3.OperationalError, sqlite3.DatabaseError):
+    except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
+        # 2. Fallback to in-memory cosine similarity (Robustness)
         cursor.execute("SELECT * FROM knowledge_nodes")
         all_meta = cursor.fetchall()
-        cursor.execute("SELECT * FROM vec_knowledge")
-        all_vecs = {r['node_id']: r['embedding'] for r in cursor.fetchall()}
+
+        all_vecs = {}
+        try:
+            cursor.execute("SELECT node_id, embedding FROM vec_knowledge")
+            all_vecs = {r['node_id']: r['embedding'] for r in cursor.fetchall()}
+        except:
+            pass # Module missing or table corrupted
         
         q_vec = query_embedding.tolist()
         results = []
         for meta in all_meta:
             nid = meta['id']
+            node = dict(meta)
+            node['similarity'] = 0
+            node['embedding'] = None
+
             if nid in all_vecs and all_vecs[nid]:
                 if ward_filter and meta['ward'] and meta['ward'] != ward_filter:
                     continue
                 v_bytes = all_vecs[nid]
-                v_vec = struct.unpack(f"{len(q_vec)}f", v_bytes)
-                sim = cosine_similarity(q_vec, v_vec)
-                if sim >= THRESHOLD:
-                    node = dict(meta)
-                    node['similarity'] = sim
-                    results.append(node)
+                try:
+                    v_vec = struct.unpack(f"{len(q_vec)}f", v_bytes)
+                    sim = cosine_similarity(q_vec, v_vec)
+                    if sim >= THRESHOLD:
+                        node['similarity'] = sim
+                        node['embedding'] = list(v_vec) # Store as list for working memory
+                        results.append(node)
+                except:
+                    continue
         results.sort(key=lambda x: x['similarity'], reverse=True)
         nodes = results[:limit]
         
@@ -305,28 +330,289 @@ QUESTION:
 {query}
 """
     try:
-        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
+        response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=prompt)
         sources = [{"id": n["id"], "domain": n["domain"], "title": n["title"]} for n in nodes]
         # Include embeddings for frontend-to-backend "Working Memory" loop
         return {
             "response": response.text.strip(), 
             "sources": sources,
-            "working_memory": [n["embedding"] for n in nodes if "embedding" in n]
+            "working_memory": [n["embedding"] for n in nodes if n.get("embedding") is not None]
         }
     except Exception as e:
         return {"response": f"Chat failed: {e}", "sources": [], "working_memory": []}
 
-def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None):
-    client = get_client()
-    if not client: return []
-    context = f"Profile: {profile}\nDigest: {digest}\nClusters: {clusters}\nTasks: {top_items}"
-    prompt = f"Based on this data, return a JSON array of 3 strategic suggestions (priority, title, body).\n\nDATA:\n{context}"
+def _execute_tool(tool_name, argument):
+    db = get_db()
     try:
-        response = client.models.generate_content(model='gemini-3-flash-preview', contents=prompt)
-        raw = response.text.strip()
-        if "```json" in raw: raw = raw.split("```json")[1].split("```")[0]
-        return json.loads(raw.strip())
-    except: return []
+        if tool_name in ["get_ward_history", "get_ward_data"]:
+            rows = db.execute("""
+                SELECT title, status, deadline, raw_text 
+                FROM timely_items WHERE ward = ? ORDER BY deadline ASC
+            """, (argument,)).fetchall()
+        elif tool_name in ["get_active_commitments", "search_tasks"]:
+            rows = db.execute("""
+                SELECT title, deadline, urgency, to_whom 
+                FROM timely_items WHERE ward = ? AND status != 'completed' ORDER BY deadline ASC
+            """, (argument,)).fetchall()
+        elif tool_name == "get_department_track_record":
+            rows = db.execute("""
+                SELECT title, status, deadline, completed_at, extension_count, urgency
+                FROM timely_items
+                WHERE to_whom = ?
+                ORDER BY created_at DESC LIMIT 10
+            """, (argument,)).fetchall()
+        elif tool_name == "get_overdue_items":
+            rows = db.execute("""
+                SELECT title, ward, to_whom, deadline, weight, extension_count
+                FROM timely_items
+                WHERE status = 'pending' AND urgency = ?
+                ORDER BY weight DESC LIMIT 10
+            """, (argument,)).fetchall()
+        elif tool_name == "get_complaint_cluster_detail":
+            rows = db.execute("""
+                SELECT c.summary, c.ward, c.weight, c.urgency, c.created_at, COUNT(co.id) as complaint_count
+                FROM clusters c
+                LEFT JOIN complaints co ON co.cluster_id = c.id
+                WHERE c.id = ?
+                GROUP BY c.id
+            """, (argument,)).fetchall()
+        elif tool_name == "get_ai_memory":
+            rows = db.execute("""
+                SELECT topic, content, created_at
+                FROM ai_memory
+                WHERE topic LIKE ?
+                ORDER BY created_at DESC LIMIT 5
+            """, (f"%{argument}%",)).fetchall()
+        elif tool_name in ["get_resolved_history", "get_resolution_trends"]:
+            limit = int(argument) if argument and str(argument).isdigit() else 10
+            rows = db.execute("""
+                SELECT title, to_whom, ward, deadline, completed_at, extension_count
+                FROM timely_items
+                WHERE status = 'completed'
+                ORDER BY completed_at DESC LIMIT ?
+            """, (limit,)).fetchall()
+        elif tool_name == "get_contact_list":
+            rows = db.execute("""
+                SELECT DISTINCT to_whom FROM timely_items WHERE to_whom IS NOT NULL
+            """).fetchall()
+        else:
+            return f"Error: Tool {tool_name} not found."
+
+        if not rows:
+            return "No results found."
+
+        return "\n".join([str(dict(r)) for r in rows])
+    except Exception as e:
+        return f"Error executing tool: {e}"
+    finally:
+        db.close()
+
+def _build_suggestions_context(profile, digest, clusters, top_items):
+    profile = profile or {}
+    digest = digest or {}
+    clusters = clusters or []
+    top_items = top_items or []
+
+    ctx = "=== MLA PROFILE ===\n"
+    ctx += f"Name: {profile.get('name', 'N/A')}, Party: {profile.get('party', 'N/A')}, Constituency: {profile.get('ward_name', 'N/A')}\n"
+    ctx += f"Janata Darbar: {profile.get('janata_darbar_day', 'N/A')} at {profile.get('janata_darbar_time', 'N/A')}\n\n"
+
+    ctx += "=== LIVE DIGEST ===\n"
+    ctx += f"Resolution rate this week: {digest.get('resolved', {}).get('resolution_rate', 0)}%\n"
+    ctx += f"Critical items: {digest.get('open_right_now', {}).get('critical', 0)}\n"
+    ctx += f"Urgent items: {digest.get('open_right_now', {}).get('urgent', 0)}\n"
+    ctx += f"Most overdue: {digest.get('most_overdue', {}).get('title', 'None')} — {digest.get('most_overdue', {}).get('days_overdue', 0)} days\n\n"
+
+    ctx += "=== ALL CRITICAL + URGENT ITEMS ===\n"
+    items = sorted(top_items, key=lambda x: x.get('weight', 0), reverse=True)
+    for item in items:
+        if item.get('urgency') in ['critical', 'urgent']:
+            ctx += f"- [{item.get('urgency').upper()}] {item.get('title')} | {item.get('ward')} | To: {item.get('to_whom')} | {item.get('days_overdue', 0)} days overdue | Extensions: {item.get('extension_count', 0)}\n"
+    ctx += "\n"
+
+    ctx += "=== TOP COMPLAINT CLUSTERS ===\n"
+    for c in clusters[:5]:
+        ctx += f"- {c.get('summary')} | {c.get('ward')} | Weight: {c.get('weight')} | Urgency: {c.get('urgency')}\n"
+    ctx += "\n"
+
+    ctx += "=== AI MEMORY NOTES ===\n"
+    db = get_db()
+    memories = db.execute("SELECT topic, content, created_at FROM ai_memory ORDER BY created_at DESC").fetchall()
+    db.close()
+    for m in memories:
+        ctx += f"- [{m['topic']}]: {m['content']} (learned: {m['created_at']})\n"
+
+    return ctx
+
+def run_suggestion_agent(profile=None, digest=None, clusters=None, top_items=None, user_query=None, history=None):
+    client = get_client()
+    if not client:
+        return {
+            "suggestions": [],
+            "thinking_trace": [{"round": 1, "type": "error", "content": "API Key missing", "timestamp": datetime.datetime.now().isoformat()}],
+            "rounds_used": 0,
+            "tools_called": []
+        }
+
+    always_on_context = _build_suggestions_context(profile, digest, clusters, top_items)
+    
+    inquiry_block = ""
+    if user_query:
+        inquiry_block = f"\nSPECIFIC INQUIRY FROM MLA: \"{user_query}\"\nFocus your analysis and suggestions specifically on this topic while considering the overall data context."
+
+    thinking_trace = history if history else []
+    tools_called = [t['tool'] for t in thinking_trace if t.get('tool')]
+    all_tool_results = [t['content'] for t in thinking_trace if t['type'] == 'tool_result']
+    all_thinking_prev = "\n".join([t['content'] for t in thinking_trace if t['type'] == 'analysis'])
+
+    # If this is a follow-up, provide session context
+    session_context = ""
+    if history:
+        session_context = f"\nPREVIOUS SESSION THINKING:\n{all_thinking_prev}\n\nPREVIOUS TOOL RESULTS:\n" + "\n".join(all_tool_results)
+    
+    # Round 1
+    round_1_prompt = f"""You are a STRATEGIC ADVISOR for an Indian MLA.
+
+STRICT TOOL POLICY:
+Only use the tools listed below. ANY OTHER TOOL NAME WILL FAIL.
+1. get_ward_data(ward) — history and current status
+2. get_active_commitments(ward) — current open tasks
+3. get_department_track_record(department) — dept reliability
+4. get_overdue_items(urgency) — full overdue list
+5. get_complaint_cluster_detail(cluster_id) — detail on cluster
+6. get_ai_memory(topic_keyword) — search memory
+7. get_resolved_history(limit) — recent resolution patterns (use for trends)
+8. get_contact_list() — unique departments and contacts
+
+CURRENT DATA:
+{always_on_context}
+{inquiry_block}
+{session_context}
+
+TASK:
+1. Analyse the data. Identify pressing issues and SYSTEMIC PATTERNS.
+2. CRITICAL: If 'SPECIFIC INQUIRY FROM MLA' is provided, your reasoning MUST focus entirely on that inquiry.
+3. CRITICAL: If NO inquiry is provided (AUTONOMOUS MODE), do NOT just list the top 4 pending tasks. Instead, find hidden ward-specific trends, departmental bottlenecks, or recurring complaint types. Identify what the MLA should HIGHLIGHT for long-term governance.
+4. If this is a follow-up, do not repeat results. Build upon the previous thinking.
+
+Respond with EXACTLY:
+TOOL_CALL: tool_name | argument
+THINKING: [reasoning]
+
+OR
+
+READY
+THINKING: [strategic highlights and pattern discovery]
+"""
+
+    current_round = 1
+    try:
+        r1_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=round_1_prompt).text.strip()
+        thinking_trace.append({"round": 1, "type": "analysis", "content": r1_response, "timestamp": datetime.datetime.now().isoformat()})
+
+        if "TOOL_CALL:" in r1_response:
+            # Parse tool call
+            parts = r1_response.split("TOOL_CALL:")[1].split("\n")[0].split("|")
+            tool_name = parts[0].strip()
+            argument = parts[1].strip() if len(parts) > 1 else ""
+
+            thinking_trace.append({"round": 1, "type": "tool_call", "content": f"Fetching {tool_name} for {argument}...", "tool": tool_name, "args": argument, "timestamp": datetime.datetime.now().isoformat()})
+
+            tool_result = _execute_tool(tool_name, argument)
+            all_tool_results.append(f"TOOL RESULT ({tool_name} | {argument}):\n{tool_result}")
+            tools_called.append(tool_name)
+            thinking_trace.append({"round": 2, "type": "tool_result", "content": tool_result, "timestamp": datetime.datetime.now().isoformat()})
+
+            # Round 2
+            round_2_prompt = f"""PREVIOUS ANALYSIS:
+{r1_response}
+
+TOOL RESULT ({tool_name} | {argument}):
+{tool_result}
+
+CURRENT DATA:
+{always_on_context}
+
+You may call one more tool if needed, or proceed.
+Respond with TOOL_CALL or READY as before.
+"""
+            r2_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=round_2_prompt).text.strip()
+            thinking_trace.append({"round": 2, "type": "analysis", "content": r2_response, "timestamp": datetime.datetime.now().isoformat()})
+            current_round = 2
+
+            if "TOOL_CALL:" in r2_response:
+                parts = r2_response.split("TOOL_CALL:")[1].split("\n")[0].split("|")
+                tool_name = parts[0].strip()
+                argument = parts[1].strip() if len(parts) > 1 else ""
+
+                thinking_trace.append({"round": 2, "type": "tool_call", "content": f"Fetching {tool_name} for {argument}...", "tool": tool_name, "args": argument, "timestamp": datetime.datetime.now().isoformat()})
+
+                tool_result = _execute_tool(tool_name, argument)
+                all_tool_results.append(f"TOOL RESULT ({tool_name} | {argument}):\n{tool_result}")
+                tools_called.append(tool_name)
+                thinking_trace.append({"round": 3, "type": "tool_result", "content": tool_result, "timestamp": datetime.datetime.now().isoformat()})
+                current_round = 3
+
+        # Final Generation
+        # Accumulate tool results and thinking for final prompt
+        tool_results_str = "\n".join(all_tool_results)
+        all_thinking = f"{all_thinking_prev}\n\nROUND 1 THINKING:\n{r1_response}"
+        if 'r2_response' in locals():
+            all_thinking += f"\n\nROUND 2 THINKING:\n{r2_response}"
+
+        inquiry_mode = "TRUE" if user_query else "FALSE"
+        final_prompt = f"""ANALYSIS COMPLETE. Generate suggestions now.
+
+{always_on_context}
+
+TOOL RESULTS:
+{tool_results_str}
+
+ANALYSIS SUMMARY:
+{all_thinking}
+
+TASK:
+Generate 3-4 specific, actionable suggestions.
+INQUIRY MODE: {inquiry_mode}
+SPECIFIC INQUIRY: {user_query}
+
+CRITICAL RULES:
+1. If INQUIRY MODE is TRUE, every suggestion MUST directly address the SPECIFIC INQUIRY.
+2. If INQUIRY MODE is FALSE (AUTONOMOUS), your suggestions should focus on PATTERN HIGHLIGHTING and STRATEGIC OVERSIGHT. Show the MLA what they missed in the raw data.
+3. If this is a follow-up (history exists), DO NOT repeat titles or content from previous rounds. Append NEW, refined insights.
+4. Reference real data from the context and tool results. No fluff.
+
+Return a JSON array only. No markdown.
+Each object: {{ "priority": "...", "title": "...", "body": "..." }}
+"""
+        final_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=final_prompt).text.strip()
+
+        if "```json" in final_response:
+            final_response = final_response.split("```json")[1].split("```")[0].strip()
+
+        try:
+            suggestions = json.loads(final_response)
+        except:
+            suggestions = [{"priority": "normal", "title": "Strategic Recommendation", "body": final_response}]
+
+        return {
+            "suggestions": suggestions,
+            "thinking_trace": thinking_trace,
+            "rounds_used": current_round,
+            "tools_called": tools_called,
+            "context_summary": f"{current_round} rounds · {len(tools_called)} tool call{'s' if len(tools_called) != 1 else ''}" + (f" · {tools_called[-1]} fetched" if tools_called else "")
+        }
+
+    except Exception as e:
+        return {
+            "suggestions": [],
+            "thinking_trace": thinking_trace + [{"round": current_round, "type": "error", "content": str(e), "timestamp": datetime.datetime.now().isoformat()}],
+            "rounds_used": current_round,
+            "tools_called": tools_called
+        }
+
+def generate_suggestions(profile=None, digest=None, clusters=None, top_items=None, user_query=None, history=None):
+    return run_suggestion_agent(profile, digest, clusters, top_items, user_query, history)
 
 def truncate_db():
     db = get_db()

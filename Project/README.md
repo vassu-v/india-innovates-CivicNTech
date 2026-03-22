@@ -1,10 +1,10 @@
-# CivicNTech Co-Pilot — Proto3
+# CivicNTech Co-Pilot — Finalé ![Finalé](https://img.shields.io/badge/Status-Finalé-brightgreen)
 
 AI-powered governance assistant for Indian elected representatives. Tracks commitments made in meetings, clusters citizen complaints by similarity, escalates overdue items automatically, and surfaces a weekly accountability digest. Now with full RAG integration for intelligent chat and strategic suggestions.
 
 ---
 
-## What Works (Proto3)
+## What Works (Finalé)
 
 ### Engines
 - **Commitment Engine** — Extracts commitments, questions, and action items from meeting transcripts using Gemini. Falls back gracefully if API key is missing — stores raw text, never crashes. Tracks deadlines, extensions, and resolution history.
@@ -30,28 +30,30 @@ AI-powered governance assistant for Indian elected representatives. Tracks commi
 
 ## RAG & Intelligence Layer
 
-Proto3 introduces a sophisticated RAG (Retrieval-Augmented Generation) architecture that grounds AI responses in live governance data.
+Finalé introduces a sophisticated RAG (Retrieval-Augmented Generation) architecture and an Agentic Suggestion system that grounds AI intelligence in live governance data.
 
-### 1. 3-Layer Context Assembly
-The RAG Engine doesn't just "search for text." It assembles a comprehensive snapshot for every query:
-- **Layer 1: Live Constituency State** — Dynamic stats from the Digest (resolution rates, critical counts), the MLA's Profile, and top pending To-Do items.
-- **Layer 2: Historical Facts & AI Memory** — Vector-retrieved documents from injected context files, completed commitment history, and "AI Memory" nodes.
-- **Layer 3: Live Patterns** — Real-time citizen complaint clusters from the Issue Engine.
+### 1. 3-Layer Context Assembly (The "Second Brain")
+The RAG Engine doesn't just "search for text." It assembles a comprehensive snapshot for every query, functioning as an institutional memory that compounds over time. This architecture ensures the AI is grounded in both static facts and the dynamic, evolving state of the constituency.
 
-### 2. Local Semantic Router
-A zero-latency, zero-token router built into the backend. It classifies queries locally using embeddings:
-- **Instant Route:** Greets the user or handles small talk without hitting the LLM or Database.
-- **Follow-up Route:** Uses "Working Memory" (embeddings of previously retrieved nodes) to handle contextual follow-up questions efficiently.
-- **Search Route:** Triggers the full 3-Layer RAG pipeline for data-driven answers.
+*   **Layer 1: Live Constituency State:** Pulls real-time stats from the Digest (resolution rates, critical counts), the MLA's Profile, and top pending To-Do items. This provides immediate situational awareness, ensuring the AI knows what is happening *right now*.
+*   **Layer 2: Historical Facts & AI Memory:** Utilizes high-performance vector retrieval (powered by `sqlite-vec` with a pure-Python cosine similarity fallback) to search through completed commitment history, injected context files (census data, scheme details), and "AI Memory" nodes. This provides the *long-term institutional memory*.
+*   **Layer 3: Live Patterns:** Integrates real-time citizen complaint clusters from the Issue Engine. This enables the system to detect *emerging trends* and recurring issues before they escalate into crises.
 
-### 3. AI Self-Memory
-The system has a feedback loop where the AI can "learn" and store new facts about the constituency or the MLA's preferences. If the LLM identifies a new pattern or preference, it generates a `[MEMORY]` tag, which the backend parses and stores in the `ai_memory` table for future retrieval.
+### 2. Local Semantic Router (Zero-Token Intelligence)
+To ensure high responsiveness and cost-efficiency, a zero-latency router is built into the backend. It classifies incoming queries locally using embeddings before any external LLM is invoked:
+*   **Instant Route:** Recognizes greetings, small talk, or general identity questions (e.g., "Namaste", "Who are you?") and responds immediately using a warmth-optimized system prompt. This saves tokens and reduces latency to near-zero.
+*   **Follow-up Route:** Detects if a query is a contextual follow-up by comparing its embedding to the "Working Memory" (the vector embeddings of the previously retrieved knowledge nodes). If a match is found, it leverages the existing context for a seamless conversation.
+*   **Search Route:** Triggers the full 3-Layer RAG pipeline for deep, data-driven analysis when the user asks for new information or complex insights.
 
-### 4. Strategic Suggestion System
-The Suggestion system provides high-level strategic insights by performing a **Snapshot Synthesis** of the entire governance state.
-- **Data Synthesis:** It pulls data from the MLA Profile, Weekly Digest (resolution rates, overdue counts), citizen complaint clusters, and the current To-Do list.
-- **LLM Reasoning:** It uses Gemini to analyze this synthesized data and identify critical gaps or opportunities for high-impact interventions.
-- **Actionable Output:** It returns 3 structured, prioritized suggestions to guide the MLA's focus for the upcoming week.
+### 3. AI Self-Memory (Recursive Learning)
+The system features a recursive feedback loop where the AI can "learn" and store new facts. If the LLM identifies a new pattern, staff member, or preference (e.g., "The MLA prefers PWD issues escalated directly to Commissioner Singh"), it emits a specialized `[MEMORY]` tag. The backend parses these tags and persists the information in the `ai_memory` table, making the "second brain" smarter with every interaction.
+
+### 4. Agentic Suggestion System (Strategic Advisor)
+The Suggestion system is a multi-round autonomous agent designed for high-level strategic analysis. Unlike standard chat, it doesn't just respond; it *investigates*:
+*   **Snapshot Synthesis:** Triggered on-demand, the agent performs a comprehensive "Snapshot Synthesis" of the entire governance state.
+*   **Tool-Calling Loop:** The agent operates in a 3-round loop. It can autonomously decide to call read-only database tools (e.g., `get_department_track_record`, `get_ward_history`, `get_overdue_items`) to gather historical evidence and track records before formulating a recommendation.
+*   **Transparent Reasoning:** Every suggested intervention is accompanied by a full "Thinking Trace." This collapsible dropdown in the UI reveals the agent's step-by-step logic, the tools it called, and the data it used.
+*   **Data-Backed Output:** Generates 3-4 specific, actionable strategic interventions prioritized by urgency (Critical, Urgent, Normal), each referencing actual constituency data.
 
 ### API Endpoints
 ```
@@ -147,10 +149,6 @@ Single SQLite file: `copilot.db`
 | knowledge_nodes | RAG Engine | Metadata for vector search |
 | vec_knowledge | RAG Engine | Vector embeddings for RAG nodes |
 | ai_memory | RAG Engine | Persistent AI-learned patterns |
-
----
-
-*Built for India Innovates 2026 — CivicNTech*
 
 ---
 
