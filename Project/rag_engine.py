@@ -394,8 +394,6 @@ def _execute_tool(tool_name, argument):
         elif tool_name == "get_contact_list":
             rows = db.execute("""
                 SELECT DISTINCT to_whom FROM timely_items WHERE to_whom IS NOT NULL
-                UNION
-                SELECT DISTINCT to_whom FROM clusters WHERE to_whom IS NOT NULL
             """).fetchall()
         else:
             return f"Error: Tool {tool_name} not found."
@@ -556,6 +554,12 @@ Respond with TOOL_CALL or READY as before.
                 current_round = 3
 
         # Final Generation
+        # Accumulate tool results and thinking for final prompt
+        tool_results_str = "\n".join(all_tool_results)
+        all_thinking = f"{all_thinking_prev}\n\nROUND 1 THINKING:\n{r1_response}"
+        if 'r2_response' in locals():
+            all_thinking += f"\n\nROUND 2 THINKING:\n{r2_response}"
+
         inquiry_mode = "TRUE" if user_query else "FALSE"
         final_prompt = f"""ANALYSIS COMPLETE. Generate suggestions now.
 
