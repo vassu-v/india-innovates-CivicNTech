@@ -393,8 +393,8 @@ def seed(reset=False):
     # CLUSTER E - Ward 29 Trash - 8 complaints → weight 8, CRITICAL
     print("  Cluster E: Ward 29 Garbage management...")
     for i in range(8):
-        _log_complaint(f"Resident {i+1}", "Ward 29", "WhatsApp",
-            f"Garbage heap at point {i*5} in Ward 29. Not cleared for 10 days. Massive stench.",
+        _log_complaint(f"Resident {i+1}", "Ward 29", "WhatsApp", 
+            f"Garbage heap at point {i*5} in Ward 29. Not cleared for 10 days. Massive stench.", 
             _d(12-i))
 
     # CLUSTER F - Ward 15 Water logging - 4 complaints → weight 4, URGENT

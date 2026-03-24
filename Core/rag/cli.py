@@ -66,7 +66,7 @@ def main():
         if args.profile and os.path.exists(args.profile):
             with open(args.profile, 'r') as f:
                 profile = json.load(f)
-
+        
         digest = None
         if args.digest and os.path.exists(args.digest):
             with open(args.digest, 'r') as f:
@@ -74,7 +74,7 @@ def main():
 
         print("Thinking...")
         result = rag_engine.chat(args.question, profile=profile, digest=digest)
-
+        
         if args.debug:
             print("\n=== ASSEMBLED CONTEXT (DEBUG) ===")
             print(result.get("raw_context", "N/A"))
@@ -84,7 +84,7 @@ def main():
         print("\n=== SOURCES ===")
         for s in result["sources"]:
             print(f"- {s['title']} ({s['domain']})")
-
+        
         # Optionally show context for debugging
         # print("\n=== DEBUG: ASSEMBLED CONTEXT ===")
         # print(result["raw_context"])

@@ -39,12 +39,12 @@ def get_intent_vectors():
     global _intent_vectors
     if _intent_vectors is not None:
         return _intent_vectors
-
+    
     model = get_model()
     # Pre-calculated centroids for "Small Talk" intents
     greetings = ["hi", "hello", "hey", "greetings", "namaste", "good morning", "good evening", "who are you", "what can you do"]
     thanks = ["thanks", "thank you", "much appreciated", "great", "awesome", "nice", "perfect"]
-
+    
     _intent_vectors = {
         "small_talk": model.encode(greetings).mean(axis=0),
         "thanks": model.encode(thanks).mean(axis=0)
@@ -58,34 +58,29 @@ def needs_context(query, recent_node_embeddings=None):
     """
     model = get_model()
     iv = get_intent_vectors()
-
+    
     q_vec = model.encode([query.lower()])[0]
-
+    
     def cosine_sim(a, b):
         # Handle cases where b might be None or empty
         if b is None or len(b) == 0: return 0
-        try:
-            a = np.array(a, dtype=np.float32)
-            b = np.array(b, dtype=np.float32)
-            norm_a = np.linalg.norm(a)
-            norm_b = np.linalg.norm(b)
-            if norm_a == 0 or norm_b == 0: return 0
-            return float((a @ b) / (norm_a * norm_b))
-        except (ValueError, TypeError, RuntimeError):
-            return 0
+        a = np.array(a)
+        b = np.array(b)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        if norm_a == 0 or norm_b == 0: return 0
+        return (a @ b) / (norm_a * norm_b)
 
     # 1. Check Small Talk
     if cosine_sim(q_vec, iv["small_talk"]) > 0.65 or cosine_sim(q_vec, iv["thanks"]) > 0.65:
         return "instant"
-
+        
     # 2. Check Semantic Follow-up (Working Memory)
     if recent_node_embeddings:
         # Check if the query is very similar to any of the nodes we JUST retrieved
         for node_vec in recent_node_embeddings:
-            # Robustness: ensure node_vec is a list/array of numbers
-            if node_vec is not None and isinstance(node_vec, (list, np.ndarray, tuple)):
-                if cosine_sim(q_vec, node_vec) > 0.75:
-                    return "follow-up"
+            if node_vec is not None and cosine_sim(q_vec, node_vec) > 0.75:
+                return "follow-up"
 
     return "search"
 
@@ -116,7 +111,7 @@ def serialize_f32(vector):
 
 def init_db():
     db = get_db()
-
+    
     # Metadata storage
     db.execute("""
     CREATE TABLE IF NOT EXISTS knowledge_nodes (
@@ -130,7 +125,7 @@ def init_db():
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
-
+    
     # Vector index
     try:
         db.execute("""
@@ -163,22 +158,22 @@ def store_node(domain, ward, topic, title, content, source_ref):
     model = get_model()
     embedding = model.encode(content)
     embedding_bytes = serialize_f32(embedding.tolist())
-
+    
     db = get_db()
     cursor = db.cursor()
-
+    
     cursor.execute("""
         INSERT INTO knowledge_nodes (domain, ward, topic, title, content, source_ref)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (domain, ward, topic, title, content, source_ref))
-
+    
     node_id = cursor.lastrowid
-
+    
     try:
         cursor.execute("INSERT INTO vec_knowledge (node_id, embedding) VALUES (?, ?)", (node_id, embedding_bytes))
     except sqlite3.OperationalError:
         pass
-
+        
     db.commit()
     db.close()
     return node_id
@@ -201,10 +196,10 @@ def query_nodes(query_text, limit=5, ward_filter=None):
     model = get_model()
     query_embedding = model.encode(query_text)
     query_bytes = serialize_f32(query_embedding.tolist())
-
+    
     db = get_db()
     cursor = db.cursor()
-
+    
     nodes = []
     try:
         # 1. Attempt using sqlite-vec (High Performance)
@@ -220,7 +215,7 @@ def query_nodes(query_text, limit=5, ward_filter=None):
             params.append(ward_filter)
         sql += " ORDER BY distance ASC LIMIT ?"
         params.append(limit)
-
+        
         cursor.execute(sql, params)
         rows = cursor.fetchall()
         for r in rows:
@@ -233,7 +228,7 @@ def query_nodes(query_text, limit=5, ward_filter=None):
             else:
                 node['embedding'] = None
             nodes.append(node)
-
+            
     except (sqlite3.OperationalError, sqlite3.DatabaseError) as e:
         # 2. Fallback to in-memory cosine similarity (Robustness)
         cursor.execute("SELECT * FROM knowledge_nodes")
@@ -245,7 +240,7 @@ def query_nodes(query_text, limit=5, ward_filter=None):
             all_vecs = {r['node_id']: r['embedding'] for r in cursor.fetchall()}
         except:
             pass # Module missing or table corrupted
-
+        
         q_vec = query_embedding.tolist()
         results = []
         for meta in all_meta:
@@ -269,22 +264,17 @@ def query_nodes(query_text, limit=5, ward_filter=None):
                     continue
         results.sort(key=lambda x: x['similarity'], reverse=True)
         nodes = results[:limit]
-
+        
     db.close()
     return nodes
 
-def assemble_context(query, profile=None, digest=None, top_items=None, clusters=None, strategic_context=None):
+def assemble_context(query, profile=None, digest=None, top_items=None, clusters=None):
     """
     Assembles the 3-layer context for Gemini.
     Returns (context_string, retrieved_nodes).
     """
     nodes = query_nodes(query, limit=5)
-
-    l0 = ""
-    if strategic_context:
-        l0 = "=== LAYER 0: STRATEGIC ANALYSIS CONTEXT ===\n"
-        l0 += strategic_context + "\n\n"
-
+    
     l1 = "=== LAYER 1: LIVE CONSTITUENCY STATE ===\n"
     if profile:
         l1 += f"MLA: {profile.get('name', 'N/A')}\nConstituency: {profile.get('ward_name', 'N/A')}\n"
@@ -300,7 +290,7 @@ def assemble_context(query, profile=None, digest=None, top_items=None, clusters=
     # Get standard nodes
     for node in nodes:
         l2 += f"[{node['domain']}] {node['title']}: {node['content']}\n"
-
+    
     # Get AI memory nodes
     db = get_db()
     memories = db.execute("SELECT * FROM ai_memory ORDER BY created_at DESC LIMIT 5").fetchall()
@@ -312,14 +302,14 @@ def assemble_context(query, profile=None, digest=None, top_items=None, clusters=
     if clusters:
         for c in clusters[:3]:
             l3 += f"- {c.get('summary')} (Weight: {c.get('weight')})\n"
+            
+    return l1 + l2 + l3, nodes
 
-    return l0 + l1 + l2 + l3, nodes
-
-def chat(query, profile=None, digest=None, top_items=None, clusters=None, strategic_context=None):
-    context, nodes = assemble_context(query, profile, digest, top_items, clusters, strategic_context)
+def chat(query, profile=None, digest=None, top_items=None, clusters=None):
+    context, nodes = assemble_context(query, profile, digest, top_items, clusters)
     client = get_client()
     if not client: return {"response": "API Key missing.", "sources": []}
-
+    
     prompt = f"""You are Co-Pilot, an AI assistant for an Indian MLA.
 You have access to the MLA's complete governance data through the context below.
 
@@ -344,7 +334,7 @@ QUESTION:
         sources = [{"id": n["id"], "domain": n["domain"], "title": n["title"]} for n in nodes]
         # Include embeddings for frontend-to-backend "Working Memory" loop
         return {
-            "response": response.text.strip(),
+            "response": response.text.strip(), 
             "sources": sources,
             "working_memory": [n["embedding"] for n in nodes if n.get("embedding") is not None]
         }
@@ -356,12 +346,12 @@ def _execute_tool(tool_name, argument):
     try:
         if tool_name in ["get_ward_history", "get_ward_data"]:
             rows = db.execute("""
-                SELECT title, status, deadline, raw_text
+                SELECT title, status, deadline, raw_text 
                 FROM timely_items WHERE ward = ? ORDER BY deadline ASC
             """, (argument,)).fetchall()
         elif tool_name in ["get_active_commitments", "search_tasks"]:
             rows = db.execute("""
-                SELECT title, deadline, urgency, to_whom
+                SELECT title, deadline, urgency, to_whom 
                 FROM timely_items WHERE ward = ? AND status != 'completed' ORDER BY deadline ASC
             """, (argument,)).fetchall()
         elif tool_name == "get_department_track_record":
@@ -465,7 +455,7 @@ def run_suggestion_agent(profile=None, digest=None, clusters=None, top_items=Non
         }
 
     always_on_context = _build_suggestions_context(profile, digest, clusters, top_items)
-
+    
     inquiry_block = ""
     if user_query:
         inquiry_block = f"\nSPECIFIC INQUIRY FROM MLA: \"{user_query}\"\nFocus your analysis and suggestions specifically on this topic while considering the overall data context."
@@ -479,7 +469,7 @@ def run_suggestion_agent(profile=None, digest=None, clusters=None, top_items=Non
     session_context = ""
     if history:
         session_context = f"\nPREVIOUS SESSION THINKING:\n{all_thinking_prev}\n\nPREVIOUS TOOL RESULTS:\n" + "\n".join(all_tool_results)
-
+    
     # Round 1
     round_1_prompt = f"""You are a STRATEGIC ADVISOR for an Indian MLA.
 

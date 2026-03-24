@@ -99,10 +99,10 @@ async function loadHome() {
     }
   }
 
-  if (stats && stats.all_time) {
+  if (stats) {
     // Update Patterns card (formerly under onclick commitments, now generic)
     const patternsContainer = document.getElementById('home-suggestions-content');
-    if (patternsContainer) {
+    if (patternsContainer && stats.all_time.most_reliable_contact) {
       let html = "";
       if (stats.all_time.most_reliable_contact) {
         html += `<div class="home-pattern"><div class="pdot" style="background:var(--green)"></div><div>${stats.all_time.most_reliable_contact}: Most reliable contact</div></div>`;
@@ -541,11 +541,6 @@ async function loadProfile() {
     if (document.getElementById('prof-pa-contact')) document.getElementById('prof-pa-contact').value = p.pa_contact;
     if (document.getElementById('prof-manager-name')) document.getElementById('prof-manager-name').value = p.manager_name;
     if (document.getElementById('prof-manager-contact')) document.getElementById('prof-manager-contact').value = p.manager_contact;
-
-    const welcomeBubble = document.getElementById('chat-welcome-bubble');
-    if (welcomeBubble) {
-      welcomeBubble.innerText = `Welcome back, ${p.name || 'there'}. I am grounded in your latest constituency data. How can I help you today?`;
-    }
   }
 }
 
@@ -684,7 +679,7 @@ async function generateSuggestions(autoThink = false) {
   resultsDiv.style.display = 'none';
   traceContainer.style.display = 'none';
   followupArea.style.display = 'none';
-
+  
   currentSuggestionsTrace = [];
 
   try {
@@ -693,7 +688,7 @@ async function generateSuggestions(autoThink = false) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: query || null })
     });
-
+    
     if (data && data.suggestions) {
       currentSuggestionsTrace = data.thinking_trace || [];
       renderSuggestions(data.suggestions, false);
@@ -784,7 +779,6 @@ async function loadRecentMeetings() {
 }
 
 let currentWorkingMemory = [];
-let currentStrategicContext = null;
 
 async function sendChat() {
   const input = document.querySelector('.chat-input');
@@ -819,8 +813,7 @@ async function sendChat() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       query: query,
-      working_memory: currentWorkingMemory,
-      strategic_context: currentStrategicContext
+      working_memory: currentWorkingMemory
     })
   });
 
@@ -841,7 +834,7 @@ async function sendChat() {
     }
 
     bubble.innerHTML = markdownToHtml(res.response);
-
+    
     if (res.sources && res.sources.length > 0) {
       const sourcesDiv = document.createElement('div');
       sourcesDiv.className = 'sources';
@@ -863,7 +856,7 @@ async function sendSuggestionsFollowup() {
 
   const resultsDiv = document.getElementById('sug-results');
   const traceSummary = document.getElementById('trace-summary');
-
+  
   traceSummary.innerText = 'Refining analysis...';
   // UI indicator
   const btn = document.querySelector('#sug-followup-area .gen-btn');
@@ -874,7 +867,7 @@ async function sendSuggestionsFollowup() {
     const data = await fetchData('/api/suggestions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body: JSON.stringify({ 
         query: query,
         history: currentSuggestionsTrace
       })
@@ -905,13 +898,13 @@ function renderSuggestions(suggestions, append) {
       <div class="sug-body">${markdownToHtml(s.body)}</div>
     </div>
   `).join('');
-
+  
   if (append) {
     resultsDiv.innerHTML += `<div class="section-label" style="margin: 20px 0">Refined Insights</div>` + html;
   } else {
     resultsDiv.innerHTML = html;
   }
-
+  
   // Bridge Button: Take to Chat
   if (!document.getElementById('sug-chat-bridge')) {
     const bridge = document.createElement('div');
@@ -948,13 +941,8 @@ function renderThinkingTrace(data) {
 
 async function transferSuggestionsToChat() {
   const thinking = currentSuggestionsTrace.map(t => t.content).join("\n\n");
-
-  // Store in strategic context to be sent separately from embeddings
-  if (thinking) {
-    currentStrategicContext = "Strategic Thinking Trace from Suggestions Engine:\n" + thinking;
-  }
-
   const log = document.querySelector('.chat-log');
+  
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const bridgeMsg = document.createElement('div');
   bridgeMsg.className = 'msg';
@@ -965,11 +953,11 @@ async function transferSuggestionsToChat() {
     </div>
   `;
   log.appendChild(bridgeMsg);
-
+  
   // Inject into working memory if possible, or just pre-set input
   const input = document.querySelector('.chat-input');
   input.value = "Let's discuss the strategic patterns you just found.";
-
+  
   goPage('chat');
   input.focus();
 }
@@ -982,7 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (input) {
     input.onkeypress = (e) => { if (e.key === 'Enter') sendChat(); };
   }
-
+  
   // Suggestions Enter Listeners
   const sugQuery = document.getElementById('sug-query');
   if (sugQuery) {

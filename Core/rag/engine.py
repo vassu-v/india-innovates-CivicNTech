@@ -52,7 +52,7 @@ def serialize_f32(vector):
 
 def init_db():
     db = get_db()
-
+    
     # Metadata storage
     db.execute("""
     CREATE TABLE IF NOT EXISTS knowledge_nodes (
@@ -66,7 +66,7 @@ def init_db():
         created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
-
+    
     # Vector index (virtual table if sqlite-vec is available)
     try:
         db.execute("""
@@ -93,22 +93,22 @@ def store_node(domain, ward, topic, title, content, source_ref):
     model = get_model()
     embedding = model.encode(content)
     embedding_bytes = serialize_f32(embedding.tolist())
-
+    
     db = get_db()
     cursor = db.cursor()
-
+    
     cursor.execute("""
         INSERT INTO knowledge_nodes (domain, ward, topic, title, content, source_ref)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (domain, ward, topic, title, content, source_ref))
-
+    
     node_id = cursor.lastrowid
-
+    
     try:
         cursor.execute("INSERT INTO vec_knowledge (node_id, embedding) VALUES (?, ?)", (node_id, embedding_bytes))
     except sqlite3.OperationalError:
         pass
-
+        
     db.commit()
     db.close()
     return node_id
@@ -130,10 +130,10 @@ def query_nodes(query_text, limit=5, ward_filter=None):
     model = get_model()
     query_embedding = model.encode(query_text)
     query_bytes = serialize_f32(query_embedding.tolist())
-
+    
     db = get_db()
     cursor = db.cursor()
-
+    
     nodes = []
     try:
         # A. Try sqlite-vec first
@@ -148,32 +148,32 @@ def query_nodes(query_text, limit=5, ward_filter=None):
             params.append(ward_filter)
         sql += " ORDER BY distance ASC LIMIT ?"
         params.append(limit)
-
+        
         cursor.execute(sql, params)
         rows = cursor.fetchall()
         for r in rows:
             node = dict(r)
             node['similarity'] = 1.0 - r['distance']
             nodes.append(node)
-
+            
     except (sqlite3.OperationalError, sqlite3.DatabaseError):
         # B. Fallback to in-memory similarity
         cursor.execute("SELECT * FROM knowledge_nodes")
         all_meta = cursor.fetchall()
-
+        
         cursor.execute("SELECT * FROM vec_knowledge")
         all_vecs = {r['node_id']: r['embedding'] for r in cursor.fetchall()}
-
+        
         q_vec = query_embedding.tolist()
         results = []
-
+        
         for meta in all_meta:
             nid = meta['id']
             if nid in all_vecs and all_vecs[nid]:
                 # Filter by ward if requested
                 if ward_filter and meta['ward'] and meta['ward'] != ward_filter:
                     continue
-
+                    
                 v_bytes = all_vecs[nid]
                 v_vec = struct.unpack(f"{len(q_vec)}f", v_bytes)
                 sim = cosine_similarity(q_vec, v_vec)
@@ -181,10 +181,10 @@ def query_nodes(query_text, limit=5, ward_filter=None):
                     node = dict(meta)
                     node['similarity'] = sim
                     results.append(node)
-
+        
         results.sort(key=lambda x: x['similarity'], reverse=True)
         nodes = results[:limit]
-
+        
     db.close()
     return nodes
 
@@ -195,19 +195,19 @@ def assemble_context(query, profile=None, digest=None, top_items=None, clusters=
     """
     # LAYER 2: Vector Retrieval (Perform first to avoid double calls)
     nodes = query_nodes(query, limit=5)
-
+    
     # LAYER 1: Always-on (Profile + Digest)
     l1 = "=== LAYER 1: LIVE CONSTITUENCY STATE ===\n"
     if profile:
         l1 += f"MLA: {profile.get('name', 'N/A')} ({profile.get('party', 'N/A')})\n"
         l1 += f"Constituency: {profile.get('ward_name', 'N/A')}\n"
         l1 += f"Janata Darbar: {profile.get('janata_darbar_day', 'N/A')} at {profile.get('janata_darbar_time', 'N/A')}\n"
-
+    
     if digest:
         l1 += f"Resolution Rate: {digest.get('resolved', {}).get('resolution_rate', 'N/A')}%\n"
         l1 += f"Critical Items: {digest.get('open_right_now', {}).get('critical', 0)}\n"
         l1 += f"Urgent Items: {digest.get('open_right_now', {}).get('urgent', 0)}\n"
-
+        
     if top_items:
         l1 += "\nTop Pending Items:\n"
         for item in top_items[:3]:
@@ -228,7 +228,7 @@ def assemble_context(query, profile=None, digest=None, top_items=None, clusters=
             l3 += f"- {c.get('summary')} (Ward: {c.get('ward')}, Weight: {c.get('weight')}, Urgency: {c.get('urgency')})\n"
     else:
         l3 += "No active complaint clusters.\n"
-
+        
     return l1 + l2 + l3, nodes
 
 def chat(query, profile=None, digest=None, top_items=None, clusters=None):
@@ -236,11 +236,11 @@ def chat(query, profile=None, digest=None, top_items=None, clusters=None):
     Main entry point for chat.
     """
     context, nodes = assemble_context(query, profile, digest, top_items, clusters)
-
+    
     client = get_client()
     if not client:
         return {"response": "Error: Gemini API key not found in .env.", "sources": []}
-
+        
     prompt = f"""
 You are Co-Pilot, an AI assistant for an Indian MLA.
 You have access to the MLA's complete governance data through the context below.
@@ -264,10 +264,10 @@ QUESTION:
             model='gemini-3-flash-preview',
             contents=prompt,
         )
-
+        
         # Reuse nodes from assemble_context
         sources = [{"id": n["id"], "domain": n["domain"], "title": n["title"]} for n in nodes]
-
+        
         return {
             "response": response.text.strip(),
             "sources": sources,
@@ -275,7 +275,7 @@ QUESTION:
         }
     except Exception as e:
         return {
-            "response": f"Error calling Gemini: {e}",
+            "response": f"Error calling Gemini: {e}", 
             "sources": [],
             "raw_context": context
         }
@@ -305,7 +305,7 @@ def generate_suggestions(profile=None, digest=None, clusters=None, top_items=Non
             context += f"- {item.get('title')} ({item.get('urgency')})\n"
 
     prompt = f"""
-You are a strategic advisor for an Indian MLA.
+You are a strategic advisor for an Indian MLA. 
 Based on the live constituency data below, provide 3-4 actionable suggestions.
 
 DATA:
