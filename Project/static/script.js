@@ -4,6 +4,16 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function markdownToHtml(text) {
+  if (!text) return "";
+  let html = text
+    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.*?)\*/g, '<i>$1</i>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+  return html;
+}
+
 async function fetchData(url, options = {}) {
   try {
     const response = await fetch(url, options);
@@ -24,6 +34,13 @@ async function loadHome() {
 
   // Dynamic Date for Home
   const now = new Date();
+  const hour = now.getHours();
+  let greeting = "Good evening";
+  if (hour < 12) greeting = "Good morning";
+  else if (hour < 17) greeting = "Good afternoon";
+  const homeGreeting = document.getElementById('home-greeting-text');
+  if (homeGreeting) homeGreeting.innerText = greeting;
+
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const homeDateDay = document.getElementById('home-date-day');
@@ -83,24 +100,20 @@ async function loadHome() {
   }
 
   if (stats) {
-    // Update Patterns card
-    const patternsContainer = document.querySelector('#page-home .home-card[onclick*="commitments"]');
-    if (patternsContainer) {
-      const label = patternsContainer.querySelector('.home-card-label').outerHTML;
-      let html = label;
-
-      // Helper to add patterns
+    // Update Patterns card (formerly under onclick commitments, now generic)
+    const patternsContainer = document.getElementById('home-suggestions-content');
+    if (patternsContainer && stats.all_time.most_reliable_contact) {
+      let html = "";
       if (stats.all_time.most_reliable_contact) {
         html += `<div class="home-pattern"><div class="pdot" style="background:var(--green)"></div><div>${stats.all_time.most_reliable_contact}: Most reliable contact</div></div>`;
       }
       if (stats.all_time.avg_days_to_resolve > 0) {
         html += `<div class="home-pattern"><div class="pdot" style="background:var(--blue)"></div><div>Avg resolution: ${Math.round(stats.all_time.avg_days_to_resolve)} days</div></div>`;
       }
-      if (stats.all_time.extension_rate > 20) {
+      if (stats.all_time.extension_rate > 10) {
         html += `<div class="home-pattern"><div class="pdot" style="background:var(--amber)"></div><div>High extension rate: ${Math.round(stats.all_time.extension_rate)}%</div></div>`;
       }
-
-      patternsContainer.innerHTML = html;
+      if (html) patternsContainer.innerHTML = html;
     }
   }
   // loadClusters(); // Original call, now moved inside loadHome
@@ -642,10 +655,78 @@ async function loadRecentComplaints() {
   }
 }
 
+let currentSuggestionsTrace = [];
 
+async function generateSuggestions(autoThink = false) {
+  const qInput = document.getElementById('sug-query');
+  if (autoThink && qInput) qInput.value = ""; // Clear for autonomous mode
+  const query = qInput ? qInput.value.trim() : null;
+
+  const btn = document.getElementById('sug-gen-btn');
+  const autoBtn = document.getElementById('sug-auto-btn');
+  const resultsDiv = document.getElementById('sug-results');
+  const traceContainer = document.getElementById('sug-trace-container');
+  const traceContent = document.getElementById('trace-content');
+  const traceSummary = document.getElementById('trace-summary');
+  const followupArea = document.getElementById('sug-followup-area');
+
+  const mainBtnText = btn.innerText;
+  btn.innerText = 'Analysing...';
+  btn.disabled = true;
+  if (autoBtn) autoBtn.disabled = true;
+
+  resultsDiv.innerHTML = '';
+  resultsDiv.style.display = 'none';
+  traceContainer.style.display = 'none';
+  followupArea.style.display = 'none';
+  
+  currentSuggestionsTrace = [];
+
+  try {
+    const data = await fetchData('/api/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: query || null })
+    });
+    
+    if (data && data.suggestions) {
+      currentSuggestionsTrace = data.thinking_trace || [];
+      renderSuggestions(data.suggestions, false);
+      renderThinkingTrace(data);
+      followupArea.style.display = 'block';
+    } else {
+      resultsDiv.innerHTML = '<div style="color:#666;font-size:11px;padding:20px">No suggestions generated.</div>';
+      resultsDiv.style.display = 'block';
+    }
+  } catch (e) {
+    console.error(e);
+  } finally {
+    btn.innerText = mainBtnText;
+    btn.disabled = false;
+    if (autoBtn) autoBtn.disabled = false;
+  }
+}
+
+function toggleTrace() {
+  const content = document.getElementById('trace-content');
+  const arrow = document.querySelector('.trace-arrow');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    arrow.innerText = '▲';
+  } else {
+    content.style.display = 'none';
+    arrow.innerText = '▼';
+  }
+}
 
 function showSug() {
-  document.getElementById('sug-results').style.display = 'block';
+  goPage('suggestions');
+  const results = document.getElementById('sug-results');
+  const btn = document.getElementById('sug-gen-btn');
+  // Only auto-trigger if no results present and not already loading
+  if (results.children.length === 0 && !btn.disabled) {
+    generateSuggestions();
+  }
 }
 
 function toggleDigest(btn, type) {
@@ -696,3 +777,211 @@ async function loadRecentMeetings() {
     }
   }
 }
+
+let currentWorkingMemory = [];
+
+async function sendChat() {
+  const input = document.querySelector('.chat-input');
+  const log = document.querySelector('.chat-log');
+  const query = input.value.trim();
+  if (!query) return;
+
+  // Add user message
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const userMsg = document.createElement('div');
+  userMsg.className = 'msg';
+  userMsg.innerHTML = `
+    <div class="msg-from">You · ${time}</div>
+    <div class="bubble you">${escapeHtml(query)}</div>
+  `;
+  log.appendChild(userMsg);
+  input.value = '';
+  log.scrollTop = log.scrollHeight;
+
+  // Show thinking
+  const aiMsg = document.createElement('div');
+  aiMsg.className = 'msg';
+  aiMsg.innerHTML = `
+    <div class="msg-from">Co-Pilot · ${time}</div>
+    <div class="bubble ai thinking">Thinking across all databases...</div>
+  `;
+  log.appendChild(aiMsg);
+  log.scrollTop = log.scrollHeight;
+
+  const res = await fetchData('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: query,
+      working_memory: currentWorkingMemory
+    })
+  });
+
+  if (res) {
+    // Update working memory for next turn
+    if (res.working_memory) {
+      currentWorkingMemory = res.working_memory;
+    }
+
+    const bubble = aiMsg.querySelector('.bubble');
+    bubble.classList.remove('thinking');
+
+    if (res.routed === "instant") {
+      bubble.classList.add('instant');
+      bubble.style.borderLeft = "4px solid #4ade80"; // Subtle indicator for instant
+    } else if (res.routed === "follow-up") {
+      bubble.style.borderLeft = "4px solid #60a5fa"; // Blue for follow-up intelligence
+    }
+
+    bubble.innerHTML = markdownToHtml(res.response);
+    
+    if (res.sources && res.sources.length > 0) {
+      const sourcesDiv = document.createElement('div');
+      sourcesDiv.className = 'sources';
+      sourcesDiv.innerHTML = 'Sources: ' + res.sources.map(s => `
+        <span class="src-chip" title="${escapeHtml(s.domain)}">${escapeHtml(s.title)}</span>
+      `).join('');
+      aiMsg.appendChild(sourcesDiv);
+    }
+  } else {
+    aiMsg.querySelector('.bubble').innerText = "Sorry, I'm having trouble connecting to my brain right now.";
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+async function sendSuggestionsFollowup() {
+  const input = document.getElementById('sug-chat-input');
+  const query = input.value.trim();
+  if (!query) return;
+
+  const resultsDiv = document.getElementById('sug-results');
+  const traceSummary = document.getElementById('trace-summary');
+  
+  traceSummary.innerText = 'Refining analysis...';
+  // UI indicator
+  const btn = document.querySelector('#sug-followup-area .gen-btn');
+  btn.innerText = 'Refining...';
+  btn.disabled = true;
+
+  try {
+    const data = await fetchData('/api/suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        query: query,
+        history: currentSuggestionsTrace
+      })
+    });
+
+    if (data && data.suggestions) {
+      // Append new suggestions
+      renderSuggestions(data.suggestions, true);
+      // Update global trace
+      currentSuggestionsTrace = data.thinking_trace || [];
+      renderThinkingTrace(data);
+    }
+  } catch (e) {
+    console.error(e);
+  } finally {
+    btn.innerText = 'Analyze & Append';
+    btn.disabled = false;
+    input.value = '';
+    input.focus();
+  }
+}
+
+function renderSuggestions(suggestions, append) {
+  const resultsDiv = document.getElementById('sug-results');
+  const html = suggestions.map((s, idx) => `
+    <div class="suggestion ${s.priority || 'normal'}" style="animation: fadeIn 0.5s ease-out">
+      <div class="sug-title">${append ? 'REFINED' : '0' + (idx+1)} — ${escapeHtml(s.title)}</div>
+      <div class="sug-body">${markdownToHtml(s.body)}</div>
+    </div>
+  `).join('');
+  
+  if (append) {
+    resultsDiv.innerHTML += `<div class="section-label" style="margin: 20px 0">Refined Insights</div>` + html;
+  } else {
+    resultsDiv.innerHTML = html;
+  }
+  
+  // Bridge Button: Take to Chat
+  if (!document.getElementById('sug-chat-bridge')) {
+    const bridge = document.createElement('div');
+    bridge.id = 'sug-chat-bridge';
+    bridge.style.padding = "20px 0";
+    bridge.innerHTML = `
+      <button class="gen-btn btn-alt" style="width: auto; padding: 10px 25px; margin: 0 auto; display: block;" onclick="transferSuggestionsToChat()">
+        Take this Conversation to Chat →
+      </button>
+    `;
+    resultsDiv.appendChild(bridge);
+  }
+
+  resultsDiv.style.display = 'block';
+}
+
+function renderThinkingTrace(data) {
+  const traceContainer = document.getElementById('sug-trace-container');
+  const traceContent = document.getElementById('trace-content');
+  const traceSummary = document.getElementById('trace-summary');
+
+  if (data.thinking_trace) {
+    traceSummary.innerText = data.context_summary || 'Analysis complete';
+    traceContent.innerHTML = data.thinking_trace.map(t => `
+      <div class="trace-entry">
+        <div class="trace-meta">Round ${t.round} · ${t.type} · ${new Date(t.timestamp).toLocaleTimeString()}</div>
+        <div class="trace-text">${escapeHtml(t.content)}</div>
+        ${t.tool ? `<div class="trace-tool">Tool: ${t.tool}(${t.args})</div>` : ''}
+      </div>
+    `).join('');
+    traceContainer.style.display = 'block';
+  }
+}
+
+async function transferSuggestionsToChat() {
+  const thinking = currentSuggestionsTrace.map(t => t.content).join("\n\n");
+  const log = document.querySelector('.chat-log');
+  
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const bridgeMsg = document.createElement('div');
+  bridgeMsg.className = 'msg';
+  bridgeMsg.innerHTML = `
+    <div class="msg-from">Co-Pilot · System Bridge · ${time}</div>
+    <div class="bubble ai" style="border-left: 4px solid var(--accent); font-size: 0.9em; opacity: 0.9;">
+      <strong>Strategic Context Transferred:</strong> I have imported the thinking trace and patterns from your Suggestions analysis. How should we proceed with these insights?
+    </div>
+  `;
+  log.appendChild(bridgeMsg);
+  
+  // Inject into working memory if possible, or just pre-set input
+  const input = document.querySelector('.chat-input');
+  input.value = "Let's discuss the strategic patterns you just found.";
+  
+  goPage('chat');
+  input.focus();
+}
+
+// Wire up chat event listeners
+document.addEventListener('DOMContentLoaded', () => {
+  const sendBtn = document.querySelector('.chat-send');
+  const input = document.querySelector('.chat-input');
+  if (sendBtn) sendBtn.onclick = sendChat;
+  if (input) {
+    input.onkeypress = (e) => { if (e.key === 'Enter') sendChat(); };
+  }
+  
+  // Suggestions Enter Listeners
+  const sugQuery = document.getElementById('sug-query');
+  if (sugQuery) {
+    sugQuery.onkeypress = (e) => { if (e.key === 'Enter') generateSuggestions(); };
+  }
+  const sugChat = document.getElementById('sug-chat-input');
+  if (sugChat) {
+    sugChat.onkeypress = (e) => { if (e.key === 'Enter') sendSuggestionsFollowup(); };
+  }
+
+  // Auto-Think button
+  const autoBtn = document.getElementById('sug-auto-btn');
+  if (autoBtn) autoBtn.onclick = () => generateSuggestions(true);
+});
