@@ -20,6 +20,7 @@ import commitment_engine
 import issue_engine
 import datetime
 import sqlite3
+import rag_engine
 import sys
 
 today      = datetime.datetime.now().date()
@@ -52,6 +53,7 @@ def _backdate_completion(item_id, completed_date_str, resolution_notes="Resolved
     complete_item() always uses now(), so we patch via SQL after.
     """
     conn = sqlite3.connect(commitment_engine.DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(
         """UPDATE timely_items
@@ -60,7 +62,24 @@ def _backdate_completion(item_id, completed_date_str, resolution_notes="Resolved
         (completed_date_str + "T10:00:00", resolution_notes, item_id)
     )
     conn.commit()
+    cursor.execute("SELECT * FROM timely_items WHERE id=?", (item_id,))
+    item = cursor.fetchone()
     conn.close()
+
+    if not item: return
+
+    # Ingest to RAG
+    try:
+        rag_engine.store_node(
+            domain='commitment_history',
+            ward=item['ward'],
+            topic=None,
+            title=item['title'],
+            content=f"Commitment: {item['title']}\nResolution: {resolution_notes}\nCompleted: {completed_date_str}",
+            source_ref=f"timely_items:{item_id}"
+        )
+    except Exception as e:
+        print(f"Seed RAG injection failed: {e}")
 
 
 def _log_complaint(citizen_name, ward, channel, text, date_received):
@@ -81,14 +100,16 @@ def _log_complaint(citizen_name, ward, channel, text, date_received):
 # -- main seed ----------------------------------------------------------------
 
 def seed(reset=False):
+    print("Initialising databases...")
+    commitment_engine.init_db()
+    issue_engine.init_db()
+    rag_engine.init_db()
+
     if reset:
         print("Resetting databases...")
         commitment_engine.truncate_db()
         issue_engine.truncate_db()
-
-    print("Initialising databases...")
-    commitment_engine.init_db()
-    issue_engine.init_db()
+        rag_engine.truncate_db()
 
     # -- PROFILE --------------------------------------------------------------
     print("Setting MLA profile...")
@@ -330,9 +351,112 @@ def seed(reset=False):
         "Illegal shop encroaching on community park entrance. Park access blocked for residents.",
         _d(8))
 
+    # -- PENDING - CRITICAL Expansion -----------------------------------------
+    # W29 - 25 days overdue - High Urgency Health Risk
+    _add_meeting_item(
+        text        = "Coordinate with Health Dept and MCD for massive anti-dengue drive in Ward 29 slums.",
+        title       = "Ward 29 Dengue Prevention Mega-Drive",
+        item_type   = "commitment",
+        source_id   = "health_alert_feb01.txt",
+        meeting_date= _d(50),
+        deadline    = _d(25),
+        to_whom     = "MCD & Health Dept",
+        ward        = "Ward 29",
+    )
+
+    # W15 - 12 days overdue - Ghost Resolution Conflict
+    _add_meeting_item(
+        text        = "Verify if the Ward 15 park redevelopment was actually finished as reported by PWD.",
+        title       = "Audit Ward 15 PWD 'Ghost' Resolution",
+        item_type   = "action",
+        source_id   = "citizen_feedback_feb15.txt",
+        meeting_date= _d(15),
+        deadline    = _d(12),
+        to_whom     = "PWD",
+        ward        = "Ward 15",
+    )
+
+    # -- PENDING - URGENT Expansion -------------------------------------------
+    # Ward 1 - 6 days overdue - Infrastructure Dependency
+    id_pwd_ward1 = _add_meeting_item(
+        text        = "PWD to relay main artery in Ward 1 once DJB pipe repairs are complete (waiting for DJB).",
+        title       = "Ward 1 Main Road - Post-DJB Repair Relaying",
+        item_type   = "commitment",
+        source_id   = "infra_coord_feb10.txt",
+        meeting_date= _d(20),
+        deadline    = _d(6),
+        to_whom     = "PWD (pending DJB)",
+        ward        = "Ward 1",
+    )
+
+    # -- COMPLAINT CLUSTERS Expansion -----------------------------------------
+    # CLUSTER E - Ward 29 Trash - 8 complaints → weight 8, CRITICAL
+    print("  Cluster E: Ward 29 Garbage management...")
+    for i in range(8):
+        _log_complaint(f"Resident {i+1}", "Ward 29", "WhatsApp",
+            f"Garbage heap at point {i*5} in Ward 29. Not cleared for 10 days. Massive stench.",
+            _d(12-i))
+
+    # CLUSTER F - Ward 15 Water logging - 4 complaints → weight 4, URGENT
+    print("  Cluster F: Ward 15 Water logging...")
+    _log_complaint("Anita", "Ward 15", "Walk-in", "Street flooding near the temple.", _d(5))
+    _log_complaint("Vikram", "Ward 15", "Walk-in", "Water entering basements in Block B.", _d(4))
+    _log_complaint("RWA W15", "Ward 15", "Letter", "Temple road unusable after rain.", _d(3))
+    _log_complaint("Police Beat", "Ward 15", "Phone", "Traffic diverted due to flooding at Ward 15 triangle.", _d(2))
+
     # -- ESCALATE - ensure weights reflect overdue days correctly --------------
     print("Running escalation to set correct weights...")
     commitment_engine.escalate()
+
+    # -- HISTORICAL RAG CONTEXT -----------------------------------------------
+    print("Seeding historical knowledge for RAG (Stories)...")
+    rag_engine.store_node(
+        domain='governance_history',
+        ward='Ward 15',
+        topic='corruption',
+        title='Contractor Review: PWD Zone 4',
+        content="Zone 4 PWD contractors have a history of marking items 'Resolved' in the system while work is only 40% complete. Requires physical audit before closing.",
+        source_ref='audit_report_2023'
+    )
+    rag_engine.store_node(
+        domain='context_file',
+        ward='Ward 42',
+        topic='demographics',
+        title='Ward 42 Factsheet 2024',
+        content="Ward 42 (South Delhi) has a population of 45,000. Drainage coverage is 60%. Major flooding occurs every February-March. 340 residents are currently eligible for PM Awas Yojana but haven't applied.",
+        source_ref='seed_static_context'
+    )
+    rag_engine.store_node(
+        domain='context_file',
+        ward='Ward 29',
+        topic='demographics',
+        title='Ward 29 Slum Redevelopment Profile',
+        content="Ward 29 contains 12 major slum clusters. High density makes sanitation drives critical. 0% sewage coverage in Sectors 1-5. Prime breeding ground for Dengue.",
+        source_ref='health_impact_survey'
+    )
+    rag_engine.store_node(
+        domain='contact_file',
+        ward=None,
+        topic='directory',
+        title='Department Liaisons 2024',
+        content="MCD: Commissioner Saxena (+91-11-2321XXXX), DJB: CE Verma (+91-11-2356XXXX), PWD: SE Gupta (+91-11-2389XXXX).",
+        source_ref='internal_directory'
+    )
+
+    # -- 2023 Historical Resolutions (Trend Data) ----------------------------
+    print("Seeding historical trend data (2023)...")
+    for i in range(5):
+        id_hist = _add_meeting_item(
+            text=f"Historical resolution {i+1} for infrastructure tracking.",
+            title=f"Completed Task 2023-{i+1}",
+            item_type="commitment",
+            source_id="archive_2023.txt",
+            meeting_date="2023-01-01",
+            deadline="2023-01-15",
+            to_whom="PWD",
+            ward=f"Ward {i*7 + 1}"
+        )
+        _backdate_completion(id_hist, "2023-01-14", "Resolved efficiently in 2023.")
 
     # -- SUMMARY --------------------------------------------------------------
     conn = sqlite3.connect(commitment_engine.DB_PATH)

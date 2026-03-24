@@ -1,4 +1,4 @@
-# SarkarSathi — AI Co-Pilot for Public Leaders & Administrators
+# SarkarSathi — AI Co-Pilot for Public Leaders & Administrators ![Finalé](https://img.shields.io/badge/Status-Finalé-brightgreen)
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
@@ -188,7 +188,7 @@ Four context layers assembled on every query:
 - **Layer 3 — live SQL:** open complaint clusters + current pending items
 - **Layer 4 — chat history:** recent conversation turns for continuity
 
-Chat and Suggestions are currently in active development.
+Chat and Suggestions are fully operational.
 
 ---
 
@@ -235,8 +235,8 @@ The intelligence core — the brain of SarkarSathi — is fully operational.
 | Log Issue | Live — complaint → cluster → To-Do |
 | Profile | Live — persists to DB |
 | Context Injection | Live — .txt files stored for RAG |
-| Chat Interface | In active development |
-| Suggestions | In active development |
+| Chat Interface | Live — RAG powered assistant grounded in your data |
+| Suggestions | Live — Agentic strategic advice with thinking trace |
 
 ---
 
