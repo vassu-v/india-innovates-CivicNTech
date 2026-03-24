@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -9,6 +9,35 @@
 </head>
 
 <body>
+  /* ═══════════════════════════════════════════════════════
+   CO-PILOT SPLASH SCREEN — inject at top of <body>
+   Paste this <div> right after the opening <body> tag
+   ═══════════════════════════════════════════════════════ */
+
+/*
+Add this HTML right after <body> in index.html:
+
+<div id="copilot-splash">
+  <div class="splash-frame"></div>
+  <div class="splash-ornament">🪷</div>
+  <div class="splash-ornament">🌿</div>
+  <div class="splash-ornament">🪷</div>
+  <div class="splash-ornament">🌿</div>
+  <div class="splash-rays"></div>
+  <div class="splash-sun"></div>
+  <div class="splash-title">Co<em>Pilot</em></div>
+  <div class="splash-subtitle">Finalé · Constituency Intelligence</div>
+</div>
+
+<script>
+  // Remove splash after animation completes
+  setTimeout(() => {
+    const splash = document.getElementById('copilot-splash');
+    if (splash) splash.remove();
+  }, 3900);
+</script>
+*/
+
 
   <div class="topbar">
     <div class="logo">Co<em>Pilot</em> — Finalé</div>
