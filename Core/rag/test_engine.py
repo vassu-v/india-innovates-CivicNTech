@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(__file__))
 import engine as rag_engine
 
 class TestRAGEngine(unittest.TestCase):
-    
+
     @classmethod
     def setUpClass(cls):
         # Ensure we use a test database
@@ -38,7 +38,7 @@ class TestRAGEngine(unittest.TestCase):
             source_ref="timely_items:101"
         )
         self.assertIsInstance(node_id, int)
-        
+
         # Simple semantic search (using the same content should return it first)
         nodes = rag_engine.query_nodes("Ward 42 road repair", limit=1)
         self.assertEqual(len(nodes), 1)
@@ -54,16 +54,16 @@ class TestRAGEngine(unittest.TestCase):
             content="Ward 42 has a population of 45,000.",
             source_ref="files:1"
         )
-        
+
         profile = {"name": "Shri Verma", "ward_name": "Ward 42"}
         digest = {"open_right_now": {"critical": 2}}
-        
-        context = rag_engine.assemble_context(
-            "What is the population of Ward 42?", 
-            profile=profile, 
+
+        context, nodes = rag_engine.assemble_context(
+            "What is the population of Ward 42?",
+            profile=profile,
             digest=digest
         )
-        
+
         self.assertIn("Shri Verma", context)
         self.assertIn("Critical Items: 2", context)
         self.assertIn("Ward 42 has a population of 45,000", context)

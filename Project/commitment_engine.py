@@ -192,7 +192,7 @@ Return a JSON array of objects only.
 No explanation. No markdown. No backticks. Just the JSON array.
 """
         response = client.models.generate_content(
-            model='models/gemini-3-flash-preview', 
+            model='models/gemini-3-flash-preview',
             contents=prompt,
         )
         raw = response.text.strip()

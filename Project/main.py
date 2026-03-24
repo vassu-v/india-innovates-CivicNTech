@@ -62,21 +62,22 @@ class ExtendRequest(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     working_memory: list = []
+    strategic_context: Optional[str] = None
 
 # API Endpoints
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     try:
         # Working memory from request (if any)
-        recent_embeddings = req.__dict__.get("working_memory", [])
-        
+        recent_embeddings = req.working_memory
+
         # 1. Routing: Instant, Follow-up, or Search
         route = rag_engine.needs_context(req.query, recent_embeddings)
-        
+
         if route == "instant":
             client = rag_engine.get_client()
             res = client.models.generate_content(
-                model='models/gemini-3-flash-preview', 
+                model='models/gemini-3-flash-preview',
                 contents=f"You are Co-Pilot. Answer the user's greeting or general question warmly. Query: {req.query}"
             )
             return {"response": res.text.strip(), "sources": [], "routed": "instant"}
@@ -84,7 +85,11 @@ def chat(req: ChatRequest):
         if route == "follow-up":
             # Just call Gemini directly with history (no new search)
             # We skip the heavy retrieval because the context is already "in chat"
-            res_data = rag_engine.chat(query=req.query, profile=commitment_engine.get_profile())
+            res_data = rag_engine.chat(
+                query=req.query,
+                profile=commitment_engine.get_profile(),
+                strategic_context=req.strategic_context
+            )
             res_data["routed"] = "follow-up"
             return res_data
 
@@ -92,20 +97,21 @@ def chat(req: ChatRequest):
         profile = commitment_engine.get_profile()
         digest = digest_engine.get_digest()
         todo = commitment_engine.get_todo_list()
-        
+
         db = issue_engine.get_db()
         clusters = db.execute("SELECT * FROM clusters WHERE status = 'open' ORDER BY weight DESC").fetchall()
         db.close()
         cluster_list = [dict(c) for c in clusters]
-        
+
         res_data = rag_engine.chat(
             query=req.query,
             profile=profile,
             digest=digest,
             top_items=todo["meeting_items"],
-            clusters=cluster_list
+            clusters=cluster_list,
+            strategic_context=req.strategic_context
         )
-        
+
         # 3. Post-Process: AI Self-Memory
         import re
         mem_match = re.search(r"\[MEMORY:\s*(.*?)\](.*?)\[/MEMORY\]", res_data["response"], re.DOTALL)
