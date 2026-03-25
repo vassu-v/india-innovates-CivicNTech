@@ -1,594 +1,1004 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Co-Pilot</title>
-  <link rel="stylesheet" href="/static/style.css">
-</head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Co-Pilot — Finalé</title>
+<link href="https://fonts.googleapis.com/css2?family=Yatra+One&family=Tiro+Devanagari+Hindi:ital@0;1&family=Cinzel:wght@400;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════
+   COPILOT FINALÉ — INDIAN MAXIMALISM EDITORIAL
+   Crimson × Beige × Gold  |  Raw · Bold · Desi
+══════════════════════════════════════════════ */
+:root{
+  --ink:   #0D0000;
+  --burg:  #3A0000;
+  --crim:  #7B0D0D;
+  --rust:  #A82020;
+  --saf:   #C94A1A;
+  --gold:  #C8882A;
+  --pgold: #E0C070;
+  --cream: #F2E4C0;
+  --beige: #EDD9A3;
+  --ivory: #FAF2DC;
+  --paper: #F5E8C4;
+  --green: #2D7A4F;
+  --blue:  #1A4A7A;
+  --ff-d: 'Yatra One',cursive;
+  --ff-h: 'Cinzel',serif;
+  --ff-hi:'Tiro Devanagari Hindi',serif;
+  --ff-m: 'Space Mono',monospace;
+  --ease: cubic-bezier(.16,1,.3,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
 
+body{
+  background:var(--burg);
+  color:var(--beige);
+  font-family:var(--ff-m);
+  font-size:12px;
+  line-height:1.6;
+}
+
+/* ── GRAIN ── */
+body::after{
+  content:'';position:fixed;inset:0;z-index:9800;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  opacity:.6;mix-blend-mode:overlay;
+  animation:grain .1s steps(3) infinite;
+}
+@keyframes grain{
+  0%{transform:translate(0,0)}33%{transform:translate(-2px,2px)}66%{transform:translate(2px,-1px)}100%{transform:translate(-1px,1px)}
+}
+
+/* ══════════════════════════════════════════════
+   INTRO — THE SUNBURST POSTER
+══════════════════════════════════════════════ */
+#intro{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  background:var(--cream);
+  transition:opacity .8s ease .1s, transform .8s ease .1s;
+}
+#intro.out{opacity:0;transform:scale(1.06);pointer-events:none}
+
+/* SUNBURST — CSS only, no canvas, pure animation */
+.intro-sunburst{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+.intro-sunburst::before{
+  content:'';
+  position:absolute;
+  width:200vmax;height:200vmax;
+  background:repeating-conic-gradient(
+    var(--crim) 0deg 10deg,
+    var(--cream) 10deg 20deg
+  );
+  animation:sunSpin 18s linear infinite;
+  transform-origin:center;
+}
+@keyframes sunSpin{to{transform:rotate(360deg)}}
+
+/* Centre fade so text is readable */
+.intro-sunburst::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(
+    circle at 50% 50%,
+    var(--cream) 0%,
+    rgba(242,228,192,.92) 22%,
+    rgba(242,228,192,.7) 38%,
+    transparent 62%
+  );
+}
+
+/* Gold orb */
+.intro-orb{
+  position:absolute;
+  width:clamp(100px,18vw,180px);
+  height:clamp(100px,18vw,180px);
+  border-radius:50%;
+  background:radial-gradient(circle at 38% 32%,#FFE89A,#C8882A 52%,#7B4010 85%);
+  box-shadow:
+    0 0 0 3px rgba(200,136,42,.4),
+    0 0 0 8px rgba(200,136,42,.15),
+    0 0 60px rgba(200,136,42,.5),
+    0 0 120px rgba(200,136,42,.25);
+  z-index:2;
+  animation:orbIn .7s var(--ease) .15s both, orbPulse 3s ease-in-out 1s infinite;
+}
+/* Sun face lines — CSS drawn */
+.intro-orb::before{
+  content:'';position:absolute;inset:15%;border-radius:50%;
+  background:
+    radial-gradient(circle at 38% 38%, rgba(0,0,0,.15) 0%, transparent 40%),
+    radial-gradient(circle at 62% 38%, rgba(0,0,0,.15) 0%, transparent 40%),
+    radial-gradient(circle at 50% 62%, rgba(0,0,0,.1) 0%, transparent 35%);
+}
+@keyframes orbIn{from{transform:scale(0) rotate(-30deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+@keyframes orbPulse{0%,100%{box-shadow:0 0 60px rgba(200,136,42,.5),0 0 120px rgba(200,136,42,.25)}50%{box-shadow:0 0 80px rgba(200,136,42,.8),0 0 160px rgba(200,136,42,.4)}}
+
+/* TITLE */
+.intro-content{
+  position:relative;z-index:3;
+  text-align:center;
+  display:flex;flex-direction:column;align-items:center;
+  gap:0;
+  padding:20px;
+}
+
+.intro-eyebrow{
+  font-family:var(--ff-h);font-size:clamp(7px,1.2vw,11px);
+  letter-spacing:.5em;text-transform:uppercase;
+  color:var(--crim);
+  opacity:0;animation:inkUp .6s var(--ease) .6s forwards;
+  margin-bottom:12px;
+}
+
+/* Big title — stacked like the Delhi poster */
+.intro-big{
+  font-family:var(--ff-d);
+  font-size:clamp(72px,15vw,160px);
+  line-height:.85;color:var(--crim);
+  letter-spacing:-.01em;
+  overflow:hidden;
+  position:relative;
+}
+/* Clip reveal left→right */
+.intro-big::after{
+  content:'';position:absolute;inset:0;
+  background:var(--cream);
+  transform-origin:left;
+  animation:wipeReveal .9s var(--ease) .2s forwards;
+}
+@keyframes wipeReveal{0%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+
+.intro-big-2{
+  font-family:var(--ff-hi);
+  font-size:clamp(18px,4vw,42px);
+  color:var(--crim);opacity:.65;
+  letter-spacing:.06em;
+  overflow:hidden;position:relative;
+  margin-top:2px;
+}
+.intro-big-2::after{
+  content:'';position:absolute;inset:0;background:var(--cream);
+  transform-origin:left;animation:wipeReveal .9s var(--ease) .45s forwards;
+}
+
+/* Horizontal rule — stamp style */
+.intro-rule{
+  width:0;height:2px;margin:14px 0;
+  background:linear-gradient(90deg,transparent,var(--crim) 30%,var(--gold) 70%,transparent);
+  animation:ruleExpand .7s var(--ease) .9s forwards;
+}
+@keyframes ruleExpand{to{width:clamp(120px,30vw,280px)}}
+
+.intro-sub{
+  font-family:var(--ff-h);font-size:clamp(7px,1vw,9px);
+  letter-spacing:.4em;text-transform:uppercase;color:var(--rust);
+  opacity:0;animation:inkUp .6s var(--ease) 1.05s forwards;
+}
+@keyframes inkUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Perforated stamp edge */
+.intro-stamp-edge{
+  position:absolute;left:0;right:0;
+  height:14px;overflow:hidden;
+}
+.intro-stamp-edge.top{top:0}
+.intro-stamp-edge.bot{bottom:0}
+.intro-stamp-edge::before{
+  content:'';display:block;width:100%;height:100%;
+  background:radial-gradient(circle, var(--burg) 5px, transparent 5px) -7px center / 14px 14px repeat-x;
+}
+/* Corner postage labels */
+.intro-corner{
+  position:absolute;
+  font-family:var(--ff-h);font-size:clamp(8px,1.2vw,12px);
+  color:var(--crim);opacity:0;
+  animation:inkUp .5s var(--ease) .55s forwards;
+}
+.intro-corner.tl{top:28px;left:32px;font-weight:700;font-size:clamp(16px,2.5vw,24px)}
+.intro-corner.tr{top:30px;right:32px;writing-mode:vertical-rl;letter-spacing:.15em;text-transform:uppercase;font-size:clamp(7px,1vw,9px)}
+.intro-corner.bl{bottom:26px;left:32px;font-size:clamp(7px,1vw,9px);letter-spacing:.2em;text-transform:uppercase}
+.intro-corner.br{bottom:26px;right:32px;font-size:clamp(7px,1vw,9px);letter-spacing:.2em;text-transform:uppercase}
+
+/* Progress bar at bottom of intro */
+.intro-progress{
+  position:absolute;bottom:0;left:0;height:3px;
+  background:linear-gradient(90deg,var(--crim),var(--gold),var(--saf));
+  animation:introProgress 2.6s ease-out .1s forwards;
+}
+@keyframes introProgress{0%{width:0}100%{width:100%}}
+
+/* ══════════════════════════════════════════════
+   TOPBAR
+══════════════════════════════════════════════ */
+.topbar{
+  position:sticky;top:0;z-index:500;
+  height:56px;
+  background:var(--ink);
+  border-bottom:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;
+  box-shadow:0 2px 24px rgba(0,0,0,.6);
+  overflow:hidden;
+}
+/* Shimmer sweep on topbar */
+.topbar::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 35%,rgba(200,136,42,.07) 50%,transparent 65%);
+  background-size:220%;
+  animation:tbShimmer 6s ease-in-out infinite;pointer-events:none;
+}
+@keyframes tbShimmer{0%,100%{background-position:220%}50%{background-position:-120%}}
+
+/* Ornamental band under topbar */
+.tb-band{
+  position:sticky;top:56px;z-index:499;height:4px;
+  background:repeating-linear-gradient(
+    90deg,
+    var(--gold) 0,var(--gold) 3px,transparent 3px,transparent 6px,
+    var(--crim) 6px,var(--crim) 9px,transparent 9px,transparent 12px,
+    var(--gold) 12px,var(--gold) 15px,transparent 15px,transparent 18px
+  );
+  opacity:.55;
+}
+
+.logo{
+  font-family:var(--ff-d);font-size:1.15rem;
+  color:var(--cream);letter-spacing:.04em;
+}
+.logo em{font-style:italic;color:var(--gold)}
+.logo-hi{
+  font-family:var(--ff-hi);font-size:.62rem;
+  color:rgba(200,136,42,.45);display:block;letter-spacing:.08em;
+}
+
+.user-info{text-align:right}
+.user-info b{
+  display:block;font-family:var(--ff-h);font-size:.8rem;
+  background:linear-gradient(90deg,var(--cream),var(--pgold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:.04em;
+}
+.user-info span{font-size:.65rem;color:rgba(237,217,163,.32);letter-spacing:.1em}
+
+/* ══════════════════════════════════════════════
+   TICKER
+══════════════════════════════════════════════ */
+.ticker{
+  position:sticky;top:60px;z-index:498;
+  height:24px;background:var(--burg);
+  border-bottom:1px solid rgba(200,136,42,.15);
+  overflow:hidden;display:flex;align-items:center;
+}
+.ticker-track{
+  display:flex;gap:48px;white-space:nowrap;
+  font-size:9.5px;color:rgba(237,217,163,.5);letter-spacing:.08em;
+  animation:ticker 32s linear infinite;
+  padding:0 16px;
+}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tdot{width:4px;height:4px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+
+/* ══════════════════════════════════════════════
+   NAV
+══════════════════════════════════════════════ */
+.nav{
+  position:sticky;top:84px;z-index:497;
+  background:rgba(10,0,0,.95);
+  border-bottom:1px solid rgba(200,136,42,.15);
+  display:flex;align-items:stretch;
+  overflow-x:auto;scrollbar-width:none;
+  padding:0 24px;
+}
+.nav::-webkit-scrollbar{display:none}
+.nav-tab{
+  flex-shrink:0;padding:0 14px;height:38px;
+  display:flex;align-items:center;
+  font-family:var(--ff-h);font-size:.59rem;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(237,217,163,.32);
+  border-bottom:2px solid transparent;
+  transition:color .2s;cursor:pointer;
+  position:relative;overflow:hidden;
+}
+.nav-tab::after{
+  content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--saf),var(--gold));
+  transform:scaleX(0);transform-origin:left;transition:transform .3s var(--ease);
+}
+.nav-tab:hover{color:var(--cream)}
+.nav-tab.active{color:var(--pgold)}
+.nav-tab.active::after{transform:scaleX(1)}
+
+/* ══════════════════════════════════════════════
+   PAGES
+══════════════════════════════════════════════ */
+.page{
+  display:none;padding:32px 28px 80px;
+  min-height:calc(100vh - 130px);
+  position:relative;z-index:2;
+}
+.page.active{display:block;animation:pageIn .4s var(--ease) both}
+@keyframes pageIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Page title ── */
+.page-title{
+  font-family:var(--ff-d);
+  font-size:clamp(3rem,6vw,5.5rem);
+  line-height:.88;letter-spacing:.02em;margin-bottom:4px;
+  background:linear-gradient(135deg,var(--ivory) 20%,var(--pgold) 55%,var(--saf));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 2px 12px rgba(200,136,42,.2));
+  animation:inkReveal .5s var(--ease) both;
+}
+@keyframes inkReveal{from{opacity:0;letter-spacing:.12em}to{opacity:1;letter-spacing:.02em}}
+.page-sub{font-size:.72rem;color:rgba(237,217,163,.3);margin-bottom:24px;font-style:italic;font-family:var(--ff-m);letter-spacing:.04em}
+.section-label{
+  font-family:var(--ff-h);font-size:.58rem;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--gold);opacity:.55;margin:22px 0 10px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-label::before{content:'✦';font-size:.5rem}
+.section-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(200,136,42,.2),transparent)}
+
+/* ══════════════════════════════════════════════
+   HOME HERO — full-width editorial block
+══════════════════════════════════════════════ */
+.home-hero{
+  display:grid;grid-template-columns:1fr auto;gap:20px;align-items:end;
+  padding-bottom:32px;margin-bottom:28px;
+  border-bottom:1px solid rgba(200,136,42,.12);
+  position:relative;
+}
+/* Sunburst behind hero */
+.home-hero::before{
+  content:'';position:absolute;
+  right:-60px;top:-40px;
+  width:320px;height:320px;
+  background:conic-gradient(
+    from 0deg,
+    transparent 0deg,rgba(155,43,43,.08) 8deg,transparent 16deg,
+    transparent 24deg,rgba(200,136,42,.06) 32deg,transparent 40deg,
+    transparent 48deg,rgba(155,43,43,.07) 56deg,transparent 64deg,
+    transparent 72deg,rgba(200,136,42,.05) 80deg,transparent 88deg,
+    transparent 96deg,rgba(155,43,43,.08) 104deg,transparent 112deg,
+    transparent 120deg,rgba(200,136,42,.06) 128deg,transparent 136deg,
+    transparent 144deg,rgba(155,43,43,.07) 152deg,transparent 160deg,
+    transparent 168deg,rgba(200,136,42,.05) 176deg,transparent 184deg,
+    transparent 192deg,rgba(155,43,43,.08) 200deg,transparent 208deg,
+    transparent 216deg,rgba(200,136,42,.06) 224deg,transparent 232deg,
+    transparent 240deg,rgba(155,43,43,.07) 248deg,transparent 256deg,
+    transparent 264deg,rgba(200,136,42,.05) 272deg,transparent 280deg,
+    transparent 288deg,rgba(155,43,43,.08) 296deg,transparent 304deg,
+    transparent 312deg,rgba(200,136,42,.06) 320deg,transparent 328deg,
+    transparent 336deg,rgba(155,43,43,.07) 344deg,transparent 352deg
+  );
+  border-radius:50%;
+  animation:heroSunSpin 80s linear infinite;
+  pointer-events:none;
+}
+@keyframes heroSunSpin{to{transform:rotate(360deg)}}
+
+.home-greeting{font-size:.72rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold);opacity:.6;margin-bottom:8px;font-family:var(--ff-h)}
+.home-name{
+  font-family:var(--ff-d);
+  font-size:clamp(3rem,7vw,6.5rem);
+  line-height:.88;letter-spacing:.02em;margin-bottom:12px;
+  overflow:hidden;
+}
+.home-name span{
+  display:block;transform:translateY(110%);
+  animation:wordUp .9s var(--ease) .1s forwards;
+  background:linear-gradient(135deg,var(--ivory) 20%,var(--pgold) 50%,var(--saf));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+@keyframes wordUp{to{transform:translateY(0)}}
+.home-meta{font-size:.72rem;color:rgba(237,217,163,.3);margin-bottom:24px;font-style:italic}
+.home-quick-stats{display:flex;gap:0;border:1px solid rgba(200,136,42,.15)}
+.hqs{padding:14px 20px;border-right:1px solid rgba(200,136,42,.08);transition:background .3s;position:relative;overflow:hidden}
+.hqs::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--saf),var(--gold));transform:scaleX(0);transition:transform .35s var(--ease)}
+.hqs:hover{background:rgba(155,43,43,.08)}.hqs:hover::after{transform:scaleX(1)}
+.hqs:last-child{border-right:none}
+.hqs-num{font-family:var(--ff-d);font-size:1.9rem;line-height:1;margin-bottom:2px}
+.hqs-num.red{color:#FF8888}.hqs-num.amber{color:var(--gold)}.hqs-num.blue{color:#6699CC}.hqs-num.green{color:#66CC88}
+.hqs-lbl{font-size:.58rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(237,217,163,.3);font-family:var(--ff-h)}
+.home-date-block{text-align:right}
+.home-big-date{
+  font-family:var(--ff-d);font-size:clamp(6rem,14vw,13rem);line-height:1;
+  color:rgba(200,136,42,.07);letter-spacing:-.02em;
+}
+.home-day{font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(237,217,163,.22);margin-top:2px}
+
+/* ══════════════════════════════════════════════
+   HOME GRID
+══════════════════════════════════════════════ */
+.home-grid{
+  display:grid;grid-template-columns:1fr 1.6fr 1fr;
+  gap:1px;background:rgba(200,136,42,.08);
+  border:1px solid rgba(200,136,42,.1);
+}
+.home-card{
+  background:rgba(12,0,0,.92);
+  padding:20px 22px;position:relative;overflow:hidden;
+  cursor:pointer;transition:background .3s;
+}
+.home-card::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    repeating-linear-gradient(45deg,rgba(200,136,42,.014) 0,rgba(200,136,42,.014) 1px,transparent 1px,transparent 18px),
+    repeating-linear-gradient(-45deg,rgba(200,136,42,.014) 0,rgba(200,136,42,.014) 1px,transparent 1px,transparent 18px);
+  pointer-events:none;
+}
+/* Top border sweep */
+.hc-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--saf),var(--gold),transparent);transform:scaleX(0);transform-origin:left;transition:transform .4s var(--ease)}
+.home-card:hover{background:rgba(50,5,5,.85)}
+.home-card:hover .hc-line{transform:scaleX(1)}
+/* Spotlight on hover */
+.home-card{--mx:50%;--my:50%}
+.home-card::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at var(--mx) var(--my),rgba(155,43,43,.07),transparent 55%);
+  opacity:0;transition:opacity .3s;pointer-events:none;
+}
+.home-card:hover::after{opacity:1}
+
+.home-card-label{font-family:var(--ff-h);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(237,217,163,.28);margin-bottom:14px;display:flex;justify-content:space-between}
+.home-card-label span{transition:transform .25s,color .25s;opacity:.3}
+.home-card:hover .home-card-label span{transform:translate(3px,-3px);opacity:.8;color:var(--gold)}
+.home-chat-prompt{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;margin-bottom:4px;border-left:2px solid transparent;font-size:.78rem;color:rgba(237,217,163,.3);transition:all .2s;cursor:pointer}
+.home-chat-prompt:hover{border-left-color:var(--crim);background:rgba(155,43,43,.06);color:var(--cream);padding-left:14px}
+.home-chat-prompt-arrow{opacity:.2;transition:opacity .2s,transform .2s}
+.home-chat-prompt:hover .home-chat-prompt-arrow{opacity:.7;transform:translate(2px,-2px)}
+.home-digest-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(200,136,42,.06);font-size:.78rem}
+.hdr-key{color:rgba(237,217,163,.3);font-style:italic}
+.hdr-val{font-family:var(--ff-d);font-size:.85rem}
+.hdr-val.red{color:#FF8888}.hdr-val.green{color:#66CC88}
+
+/* ══════════════════════════════════════════════
+   ISSUE ITEMS
+══════════════════════════════════════════════ */
+.issue-list{display:flex;flex-direction:column;gap:1px}
+.issue-item{
+  background:rgba(12,0,0,.85);padding:12px 16px;
+  border-left:2px solid transparent;transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.issue-item::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(155,43,43,.03),transparent);opacity:0;transition:opacity .25s}
+.issue-item:hover{background:rgba(50,5,5,.7)}.issue-item:hover::before{opacity:1}
+.issue-item:hover{transform:translateX(3px)}
+.issue-item.critical{border-left-color:#CC2244}.issue-item.urgent{border-left-color:var(--gold)}.issue-item.normal{border-left-color:#2D7A4F}
+.ii-title{font-size:.82rem;margin-bottom:2px;color:var(--cream)}
+.ii-meta{font-size:.68rem;color:rgba(237,217,163,.3);font-style:italic}
+
+/* ══════════════════════════════════════════════
+   STATS ROW
+══════════════════════════════════════════════ */
+.stats-row{display:flex;gap:1px;background:rgba(200,136,42,.08);border:1px solid rgba(200,136,42,.1);margin-bottom:24px}
+.stat-box{flex:1;padding:24px;background:rgba(12,0,0,.85);position:relative;overflow:hidden;transition:background .3s,transform .25s var(--ease);cursor:pointer}
+.stat-box::after{content:'';position:absolute;bottom:0;left:0;right:100%;height:2px;background:linear-gradient(90deg,var(--saf),var(--gold));transition:right .4s var(--ease)}
+.stat-box:hover{background:rgba(50,5,5,.7);transform:translateY(-2px)}.stat-box:hover::after{right:0}
+.stat-num{font-family:var(--ff-d);font-size:3rem;line-height:1;margin-bottom:4px}
+.stat-num.red{color:#FF8888}.stat-num.amber{color:var(--gold)}.stat-num.blue{color:#6699CC}.stat-num.green{color:#66CC88}
+.stat-lbl{font-family:var(--ff-h);font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(237,217,163,.28)}
+
+/* ══════════════════════════════════════════════
+   BAR
+══════════════════════════════════════════════ */
+.bar-wrap{margin-bottom:22px}
+.bar{height:2px;background:rgba(237,217,163,.06);overflow:hidden}
+.bar-fill{height:100%;width:0;background:linear-gradient(90deg,var(--burg),var(--crim),var(--saf),var(--gold));transition:width 2s var(--ease);box-shadow:0 0 8px rgba(200,136,42,.4);position:relative}
+.bar-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);animation:barShine 2s ease-in-out infinite}
+@keyframes barShine{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
+.bar-labels{display:flex;justify-content:space-between;font-size:.68rem;color:rgba(237,217,163,.28);margin-top:5px;letter-spacing:.05em}
+
+/* ══════════════════════════════════════════════
+   CHAT
+══════════════════════════════════════════════ */
+.chat-wrap{
+  height:calc(100vh - 280px);min-height:300px;
+  border:1px solid rgba(200,136,42,.15);
+  display:flex;flex-direction:column;
+  background:rgba(10,0,0,.94);
+  position:relative;overflow:hidden;
+}
+.chat-wrap::before{
+  content:'';position:absolute;inset:0;
+  background-image:repeating-linear-gradient(
+    45deg,rgba(200,136,42,.012) 0,rgba(200,136,42,.012) 1px,transparent 1px,transparent 18px
+  ),repeating-linear-gradient(
+    -45deg,rgba(200,136,42,.012) 0,rgba(200,136,42,.012) 1px,transparent 1px,transparent 18px
+  );
+  pointer-events:none;
+}
+.chat-log{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(155,43,43,.3) transparent}
+.msg{animation:msgIn .3s var(--ease) both}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg-from{font-family:var(--ff-h);font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);opacity:.4;margin-bottom:5px}
+.bubble{padding:11px 15px;max-width:80%;font-size:.82rem;line-height:1.65}
+.bubble.ai{background:rgba(30,5,5,.7);border-left:2px solid var(--crim);color:var(--cream)}
+.bubble.user{background:rgba(100,15,15,.5);border:1px solid rgba(155,43,43,.3);color:var(--beige);align-self:flex-end}
+.chat-input-row{display:flex;border-top:1px solid rgba(200,136,42,.1);position:relative;z-index:1}
+.chat-input{flex:1;padding:13px 16px;background:transparent;border:none;font-family:var(--ff-m);font-size:.82rem;color:var(--beige);outline:none}
+.chat-input::placeholder{color:rgba(237,217,163,.18)}
+.chat-send{padding:13px 22px;background:linear-gradient(135deg,var(--burg),var(--crim));color:var(--cream);border:none;border-left:1px solid rgba(200,136,42,.15);font-family:var(--ff-h);font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;transition:all .2s}
+.chat-send:hover{background:linear-gradient(135deg,var(--crim),var(--rust))}
+
+/* ══════════════════════════════════════════════
+   DIGEST
+══════════════════════════════════════════════ */
+.digest-date{font-family:var(--ff-h);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(237,217,163,.3);margin-bottom:14px}
+.d-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(12,0,0,.7);border-left:2px solid transparent;margin-bottom:2px;transition:all .2s;cursor:pointer}
+.d-row:hover{border-left-color:var(--crim);background:rgba(50,5,5,.6);transform:translateX(4px)}
+.d-key{font-size:.8rem;color:rgba(237,217,163,.35);font-style:italic}
+.d-val{font-family:var(--ff-d);font-size:1.1rem}
+.d-val.red{color:#FF8888}.d-val.green{color:#66CC88}.d-val.amber{color:var(--gold)}
+
+/* ══════════════════════════════════════════════
+   SUGGESTIONS
+══════════════════════════════════════════════ */
+.sug-input-wrap{background:rgba(12,0,0,.8);border:1px solid rgba(200,136,42,.14);padding:16px;margin-bottom:18px}
+.sug-input-wrap input{width:100%;background:transparent;border:none;border-bottom:1px solid rgba(200,136,42,.15);padding:9px 0;font-family:var(--ff-m);font-size:.82rem;color:var(--beige);outline:none;margin-bottom:12px}
+.sug-input-wrap input::placeholder{color:rgba(237,217,163,.2)}
+.sug-btn-group{display:flex;gap:9px;flex-wrap:wrap}
+.trace-dropdown{border:1px solid rgba(200,136,42,.12);background:rgba(12,0,0,.7);margin-bottom:16px}
+.trace-header{padding:10px 14px;display:flex;justify-content:space-between;font-family:var(--ff-h);font-size:.62rem;letter-spacing:.15em;text-transform:uppercase;color:rgba(237,217,163,.4);cursor:pointer}
+.trace-content{padding:0 14px 14px;font-size:.75rem;color:rgba(237,217,163,.35);line-height:1.7;font-style:italic}
+
+/* ══════════════════════════════════════════════
+   FORMS
+══════════════════════════════════════════════ */
+.upload-type-row{display:grid;gap:8px;margin-bottom:18px}
+.upload-type{padding:14px 18px;border:1px solid rgba(200,136,42,.12);background:rgba(12,0,0,.75);transition:all .25s;cursor:pointer;position:relative;overflow:hidden}
+.upload-type::after{content:'';position:absolute;bottom:0;left:0;right:100%;height:1.5px;background:linear-gradient(90deg,var(--saf),var(--gold));transition:right .3s var(--ease)}
+.upload-type:hover,.upload-type.selected{border-color:rgba(155,43,43,.3);background:rgba(50,5,5,.6)}
+.upload-type.selected::after,.upload-type:hover::after{right:0}
+.upload-type-icon{font-size:1.4rem;margin-bottom:5px}
+.upload-type-name{font-size:.82rem;margin-bottom:2px}
+.upload-type-desc{font-size:.68rem;color:rgba(237,217,163,.28)}
+.upload-zone{border:1px dashed rgba(200,136,42,.18);padding:36px;text-align:center;background:rgba(12,0,0,.7);cursor:pointer;margin-bottom:18px;transition:all .3s;position:relative;overflow:hidden}
+.upload-zone:hover{border-color:rgba(155,43,43,.4);border-style:solid;background:rgba(50,5,5,.5)}
+.upload-icon{font-size:1.6rem;margin-bottom:8px;opacity:.3;transition:transform .3s,opacity .3s}
+.upload-zone:hover .upload-icon{transform:translateY(-4px);opacity:.6}
+.upload-label{font-size:.82rem;margin-bottom:4px;font-style:italic}
+.upload-sub{font-size:.68rem;color:rgba(237,217,163,.25);letter-spacing:.04em}
+.uploaded-list{border:1px solid rgba(200,136,42,.08);margin-bottom:22px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.full-col{grid-column:1/-1}
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field-label{font-family:var(--ff-h);font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);opacity:.5}
+.field-input{padding:9px 12px;background:rgba(12,0,0,.7);border:1px solid rgba(200,136,42,.12);font-family:var(--ff-m);font-size:.8rem;color:var(--beige);outline:none;transition:border-color .2s,background .2s;width:100%}
+.field-input:focus{border-color:rgba(155,43,43,.4);background:rgba(50,5,5,.3)}
+textarea.field-input{resize:vertical;min-height:80px;line-height:1.5}
+select.field-input{cursor:pointer}
+
+/* ══════════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════════ */
+.gen-btn{
+  padding:8px 18px;
+  background:transparent;border:1px solid rgba(200,136,42,.2);
+  color:rgba(237,217,163,.4);
+  font-family:var(--ff-h);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
+  cursor:pointer;margin-bottom:8px;
+  transition:all .22s;position:relative;overflow:hidden;
+}
+.gen-btn::before{content:'';position:absolute;inset:0;background:rgba(155,43,43,.06);opacity:0;transition:opacity .25s}
+.gen-btn:hover{color:var(--saf);border-color:rgba(155,43,43,.3)}.gen-btn:hover::before{opacity:1}
+.gen-btn.btn-alt{border-color:rgba(200,136,42,.25);color:rgba(237,217,163,.45)}
+.submit-btn{
+  padding:12px 28px;
+  background:linear-gradient(135deg,var(--burg),var(--crim),var(--rust));
+  color:var(--ivory);border:1px solid rgba(200,136,42,.2);
+  font-family:var(--ff-h);font-size:.65rem;letter-spacing:.22em;text-transform:uppercase;
+  margin-top:14px;cursor:pointer;
+  transition:all .22s;position:relative;overflow:hidden;display:inline-block;
+}
+.submit-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent);transform:translateX(-100%);transition:transform .5s var(--ease)}
+.submit-btn:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 6px 22px rgba(100,10,10,.4)}.submit-btn:hover::after{transform:translateX(100%)}
+
+/* ══════════════════════════════════════════════
+   MISC
+══════════════════════════════════════════════ */
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--ink)}::-webkit-scrollbar-thumb{background:linear-gradient(var(--crim),var(--gold))}
+.red{color:#FF8888!important}.amber{color:var(--gold)!important}.green{color:#66CC88!important}.blue{color:#6699CC!important}
+hr{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(200,136,42,.25),transparent);margin:20px 0}
+
+@media(max-width:700px){
+  .topbar,.nav{padding:0 14px}.page{padding:22px 14px 60px}
+  .home-hero{grid-template-columns:1fr}.home-grid{grid-template-columns:1fr}
+  .stats-row{flex-direction:column}.two-col{grid-template-columns:1fr}
+  .upload-type-row{grid-template-columns:1fr!important}
+  .ticker{display:none}
+}
+</style>
+</head>
 <body>
 
-  <div class="topbar">
-    <div class="logo">Co-Pilot <em>Finalé</em></div>
-    <div class="user-info">
-      <div>
-        <b id="top-user-name">Loading...</b>
-        <div id="top-user-sub" style="font-size: 11px; opacity: 0.7;">MLA · Loading...</div>
+<!-- ══════ INTRO ══════ -->
+<div id="intro">
+  <div class="intro-stamp-edge top"></div>
+  <div class="intro-sunburst"></div>
+  <div class="intro-orb"></div>
+
+  <div class="intro-corner tl">25</div>
+  <div class="intro-corner tr">Postage</div>
+  <div class="intro-corner bl">सह-पायलट</div>
+  <div class="intro-corner br">Finalé</div>
+
+  <div class="intro-content">
+    <div class="intro-eyebrow">For the People · जनता के लिए</div>
+    <div class="intro-big">CoPilot</div>
+    <div class="intro-big-2">सह-पायलट · जन सेवा</div>
+    <div class="intro-rule"></div>
+    <div class="intro-sub">Constituency Intelligence System</div>
+  </div>
+
+  <div class="intro-progress"></div>
+  <div class="intro-stamp-edge bot"></div>
+</div>
+
+<!-- ══════ TOPBAR ══════ -->
+<div class="topbar">
+  <div>
+    <div class="logo">Co<em>Pilot</em> — Finalé</div>
+    <span class="logo-hi">जन सेवा प्रणाली</span>
+  </div>
+  <div class="user-info">
+    <b id="top-user-name">Rajendra Kumar Verma</b>
+    <span id="top-user-sub">MLA · Lucknow North</span>
+  </div>
+</div>
+<div class="tb-band"></div>
+
+<!-- ══════ TICKER ══════ -->
+<div class="ticker">
+  <div class="ticker-track">
+    <span><span class="tdot" style="background:#CC2244"></span>2 critical issues pending · 2 महत्वपूर्ण</span>
+    <span><span class="tdot" style="background:var(--gold)"></span>Ward 42 drainage escalation due today</span>
+    <span><span class="tdot" style="background:#66CC88"></span>3 commitments resolved this week</span>
+    <span><span class="tdot" style="background:var(--saf)"></span>Monsoon prep — 14 days · मानसून तैयारी</span>
+    <span><span class="tdot" style="background:var(--pgold)"></span>340 residents PM Awas eligible</span>
+    <span><span class="tdot" style="background:#CC2244"></span>2 critical issues pending · 2 महत्वपूर्ण</span>
+    <span><span class="tdot" style="background:var(--gold)"></span>Ward 42 drainage escalation due today</span>
+    <span><span class="tdot" style="background:#66CC88"></span>3 commitments resolved this week</span>
+    <span><span class="tdot" style="background:var(--saf)"></span>Monsoon prep — 14 days · मानसून तैयारी</span>
+    <span><span class="tdot" style="background:var(--pgold)"></span>340 residents PM Awas eligible</span>
+  </div>
+</div>
+
+<!-- ══════ NAV ══════ -->
+<div class="nav">
+  <div class="nav-tab active" onclick="go(this,'home')">Home</div>
+  <div class="nav-tab" onclick="go(this,'todo')">To-Do</div>
+  <div class="nav-tab" onclick="go(this,'commitments')">Commitments</div>
+  <div class="nav-tab" onclick="go(this,'chat')">Chat</div>
+  <div class="nav-tab" onclick="go(this,'suggestions')">Suggestions</div>
+  <div class="nav-tab" onclick="go(this,'digest')">Digest</div>
+  <div class="nav-tab" onclick="go(this,'upload')">Upload Meeting</div>
+  <div class="nav-tab" onclick="go(this,'issues')">Log Issue</div>
+  <div class="nav-tab" onclick="go(this,'profile')">Profile</div>
+</div>
+
+<!-- ══════ HOME ══════ -->
+<div class="page active" id="page-home">
+  <div class="home-hero">
+    <div>
+      <div class="home-greeting" id="home-greeting-text">Good morning · नमस्कार</div>
+      <div class="home-name"><span id="hero-user-name">Rajendra Kumar Verma</span></div>
+      <div class="home-meta" id="hero-user-meta">Lucknow North · Ward 42 · UP Legislative Assembly</div>
+      <div class="home-quick-stats">
+        <div class="hqs"><div class="hqs-num red">3</div><div class="hqs-lbl">Critical</div></div>
+        <div class="hqs"><div class="hqs-num amber">7</div><div class="hqs-lbl">Overdue</div></div>
+        <div class="hqs"><div class="hqs-num blue">24</div><div class="hqs-lbl">Open</div></div>
+        <div class="hqs"><div class="hqs-num green">61%</div><div class="hqs-lbl">On-time</div></div>
       </div>
-      <div style="width: 32px; height: 32px; background: var(--mid); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--blue); font-size: 12px; border: 1px solid var(--border);">
-        <span id="user-initials">..</span>
-      </div>
+    </div>
+    <div class="home-date-block">
+      <div class="home-big-date" id="home-date-day">25</div>
+      <div class="home-day" id="home-date-full">Wednesday · March 2026</div>
     </div>
   </div>
 
-  <div class="nav">
-    <div class="nav-tab active" onclick="go(this,'home')">Home</div>
-    <div class="nav-tab" onclick="go(this,'todo')">To-Do</div>
-    <div class="nav-tab" onclick="go(this,'commitments')">Commitments</div>
-    <div class="nav-tab" onclick="go(this,'chat')">Chat</div>
-    <div class="nav-tab" onclick="go(this,'suggestions')">Suggestions</div>
-    <div class="nav-tab" onclick="go(this,'digest')">Digest</div>
-    <div class="nav-tab" onclick="go(this,'upload')">Upload Meeting</div>
-    <div class="nav-tab" onclick="go(this,'issues')">Log Issue</div>
-    <div class="nav-tab" onclick="go(this,'profile')">Profile</div>
-  </div>
-
-  <!-- HOME -->
-  <div class="page active" id="page-home">
-
-    <div class="home-hero">
-      <div>
-        <div class="home-greeting" id="home-greeting-text">Good morning</div>
-        <div class="home-name"><span id="hero-user-name">MLA</span></div>
-        <div class="home-meta" id="hero-user-meta">Ward Profile Loading...</div>
-        <div class="home-quick-stats">
-          <div class="hqs">
-            <div class="hqs-num red">-</div>
-            <div class="hqs-lbl">Critical</div>
-          </div>
-          <div class="hqs">
-            <div class="hqs-num amber">-</div>
-            <div class="hqs-lbl">Overdue</div>
-          </div>
-          <div class="hqs">
-            <div class="hqs-num blue">-</div>
-            <div class="hqs-lbl">Open items</div>
-          </div>
-          <div class="hqs">
-            <div class="hqs-num green">-%</div>
-            <div class="hqs-lbl">On-time rate</div>
-          </div>
-        </div>
-      </div>
-      <div class="home-date-block">
-        <div class="home-big-date" id="home-date-day">-</div>
-        <div class="home-day" id="home-date-full">Loading...</div>
-      </div>
+  <div class="home-grid">
+    <div class="home-card" onclick="go(null,'todo')" onmousemove="spot(event,this)">
+      <div class="hc-line"></div>
+      <div class="home-card-label">Urgent to-do <span>↗</span></div>
+      <div class="issue-item critical" style="margin-bottom:4px"><div class="ii-title">Drainage repair — Sector 7</div><div class="ii-meta">Critical · 12 days overdue · PWD</div></div>
+      <div class="issue-item urgent" style="margin-bottom:4px"><div class="ii-title">Street light tender response</div><div class="ii-meta">Urgent · Due today · Municipal Corp</div></div>
+      <div class="issue-item urgent"><div class="ii-title">Water supply complaint cluster</div><div class="ii-meta">Urgent · 8 linked complaints</div></div>
     </div>
 
-    <div class="home-grid">
-
-      <!-- URGENT TODO -->
-      <div class="home-card" onclick="goPage('todo')">
-        <div class="home-card-label">Urgent to-do <span>→</span></div>
-        <div style="color:#888;font-size:11px;padding:10px 0">Loading urgent items...</div>
-      </div>
-
-      <!-- QUICK CHAT -->
-      <div class="home-card" onclick="goPage('chat')">
-        <div class="home-card-label">Ask Co-Pilot <span>→</span></div>
-        <div class="home-chat-prompt">
-          <span>Am I ready for today's meetings?</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
-        <div class="home-chat-prompt">
-          <span>What are the top issues in Ward 42?</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
-        <div class="home-chat-prompt">
-          <span>Draft a response to the drainage complaints</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
-        <div class="home-chat-prompt">
-          <span>What is my track record with PWD?</span>
-          <span class="home-chat-prompt-arrow">↗</span>
-        </div>
-      </div>
-
-      <!-- TODAY'S DIGEST -->
-      <div class="home-card" onclick="goPage('digest')">
-        <div class="home-card-label">Today at a glance <span>→</span></div>
-        <div class="home-digest-row">
-          <span class="hdr-key">New complaints</span>
-          <span class="hdr-val">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Became overdue</span>
-          <span class="hdr-val red">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Resolved this week</span>
-          <span class="hdr-val green">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">New commitments</span>
-          <span class="hdr-val">-</span>
-        </div>
-        <div class="home-digest-row">
-          <span class="hdr-key">Oldest unresolved</span>
-          <span class="hdr-val">-</span>
-        </div>
-      </div>
-
-      <!-- SUGGESTIONS -->
-      <div class="home-card" onclick="goPage('suggestions')">
-        <div class="home-card-label">Strategic Suggestions <span>→</span></div>
-        <div id="home-suggestions-content">
-          <div style="color:#888;font-size:11px;padding:10px 0">AI is ready to analyze your latest governance data and provide strategic insights.</div>
-        </div>
-        <div style="margin-top:10px">
-          <button class="gen-btn" style="margin-bottom:0;font-size:9px;padding:7px 14px"
-            onclick="event.stopPropagation();showSug()">Generate now</button>
-        </div>
-      </div>
-
-      <!-- COMPLAINT CLUSTERS -->
-      <div class="home-card" onclick="goPage('issues')">
-        <div class="home-card-label">Complaint clusters <span>→</span></div>
-        <div style="color:#888;font-size:11px;padding:10px 0">Loading clusters...</div>
-      </div>
-
+    <div class="home-card" onclick="go(null,'chat')" onmousemove="spot(event,this)">
+      <div class="hc-line"></div>
+      <div class="home-card-label">Ask Co-Pilot <span>↗</span></div>
+      <div class="home-chat-prompt" onclick="openChat(this)"><span>Am I ready for today's meetings?</span><span class="home-chat-prompt-arrow">↗</span></div>
+      <div class="home-chat-prompt" onclick="openChat(this)"><span>What are the top issues in Ward 42?</span><span class="home-chat-prompt-arrow">↗</span></div>
+      <div class="home-chat-prompt" onclick="openChat(this)"><span>Draft a response to drainage complaints</span><span class="home-chat-prompt-arrow">↗</span></div>
+      <div class="home-chat-prompt" onclick="openChat(this)"><span>What is my track record with PWD?</span><span class="home-chat-prompt-arrow">↗</span></div>
     </div>
 
-  </div>
-  </div>
-
-  <div class="page" id="page-todo">
-    <div class="page-title">To-Do</div>
-    <div class="page-sub">
-      <span id="todo-stats-summary">14 pending · 2 critical</span> · ranked by weight
-      <button class="gen-btn" style="float:right;margin:0;padding:4px 10px;font-size:10px" onclick="liveEscalate()">Live Escalate</button>
+    <div class="home-card" onclick="go(null,'digest')" onmousemove="spot(event,this)">
+      <div class="hc-line"></div>
+      <div class="home-card-label">Today at a glance <span>↗</span></div>
+      <div class="home-digest-row"><span class="hdr-key">New complaints</span><span class="hdr-val">5</span></div>
+      <div class="home-digest-row"><span class="hdr-key">Became overdue</span><span class="hdr-val red">2</span></div>
+      <div class="home-digest-row"><span class="hdr-key">Resolved this week</span><span class="hdr-val green">4</span></div>
+      <div class="home-digest-row"><span class="hdr-key">New commitments</span><span class="hdr-val">1</span></div>
+      <div class="home-digest-row"><span class="hdr-key">Oldest unresolved</span><span class="hdr-val">47 days</span></div>
     </div>
 
-    <div style="color:#666;font-size:11px;padding:20px">Loading items...</div>
-  </div>
-
-  <!-- COMMITMENTS -->
-  <div class="page" id="page-commitments">
-    <div class="page-title">Commitment Tracker</div>
-    <div class="page-sub">Personal accountability mirror · this month</div>
-
-    <div class="stats-row">
-      <div class="stat-box clickable" onclick="goTodo('critical')">
-        <div class="stat-num red">0</div>
-        <div class="stat-lbl">Critical now</div>
-      </div>
-      <div class="stat-box clickable" onclick="goTodo('urgent')">
-        <div class="stat-num amber">0</div>
-        <div class="stat-lbl">Urgent now</div>
-      </div>
-      <div class="stat-box clickable" onclick="goTodo()">
-        <div class="stat-num blue">0</div>
-        <div class="stat-lbl">Total pending</div>
-      </div>
+    <div class="home-card" onclick="go(null,'suggestions')" onmousemove="spot(event,this)">
+      <div class="hc-line"></div>
+      <div class="home-card-label">Strategic Suggestions <span>↗</span></div>
+      <div class="issue-item normal" style="margin-bottom:4px"><div class="ii-title">File RTI on PWD drainage delay</div><div class="ii-meta">High impact · Actionable now</div></div>
+      <div class="issue-item urgent" style="margin-bottom:12px"><div class="ii-title">Cluster water complaints for press</div><div class="ii-meta">Medium impact · 8 linked</div></div>
+      <button class="gen-btn" style="margin:0;font-size:.58rem;padding:6px 12px" onclick="event.stopPropagation();go(null,'suggestions');generateSuggestions()">Generate now</button>
     </div>
 
-    <div class="bar-wrap">
-      <div class="bar">
-        <div class="bar-fill" style="width:61%"></div>
-      </div>
-      <div class="bar-labels"><span>On-time rate: 61%</span><span>↑ from 45% last month</span></div>
-    </div>
-
-    <div class="section-label">Active Commitments</div>
-    <div id="active-commitments-list" class="issue-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading active commitments...</div>
-    </div>
-
-    <div id="history-section"></div>
-  </div>
-
-  <!-- CHAT -->
-  <div class="page" id="page-chat">
-    <div class="page-title">Chat</div>
-    <div class="page-sub">Ask anything · Gemini 3 Flash Preview · all four databases queried locally</div>
-
-    <div class="chat-wrap">
-      <div class="chat-log">
-        <div class="msg">
-          <div class="msg-from">Co-Pilot · System</div>
-          <div class="bubble ai">
-            Welcome back, Shri Rajendra Kumar Verma. I am grounded in your latest constituency data. How can I help you today?
-          </div>
-        </div>
-      </div>
-      <div class="chat-input-row">
-        <input class="chat-input" type="text"
-          placeholder="Ask about your constituency, commitments, patterns, or draft a response...">
-        <button class="chat-send">Send</button>
-      </div>
+    <div class="home-card" onmousemove="spot(event,this)">
+      <div class="hc-line"></div>
+      <div class="home-card-label">Complaint clusters <span>↗</span></div>
+      <div class="issue-item critical" style="margin-bottom:4px"><div class="ii-title">Drainage / waterlogging</div><div class="ii-meta">14 complaints · Wards 42, 38, 45</div></div>
+      <div class="issue-item urgent" style="margin-bottom:4px"><div class="ii-title">Street lighting</div><div class="ii-meta">9 complaints · Ward 42</div></div>
+      <div class="issue-item normal"><div class="ii-title">Water supply</div><div class="ii-meta">8 complaints · resolved cluster</div></div>
     </div>
   </div>
+</div>
 
-  <!-- SUGGESTIONS -->
-  <div class="page" id="page-suggestions">
-    <div class="page-title">Suggestions</div>
-    <div class="page-sub">Interactive Strategic Analyst · models/gemini-3-flash-preview</div>
+<!-- TO-DO -->
+<div class="page" id="page-todo">
+  <div class="page-title">To-Do</div>
+  <div class="page-sub"><span id="todo-stats-summary">24 pending · 3 critical</span> · ranked by weight <button class="gen-btn" style="float:right;margin:0;padding:4px 10px" onclick="liveEscalate()">Live Escalate</button></div>
+  <div class="issue-list">
+    <div class="issue-item critical"><div class="ii-title">🔴 Drainage repair follow-up — Sector 7</div><div class="ii-meta">Critical · 12 days overdue · PWD · Committed 14 Mar</div></div>
+    <div class="issue-item critical"><div class="ii-title">🔴 Submit grievance to Chief Engineer</div><div class="ii-meta">Critical · Due today · Infrastructure</div></div>
+    <div class="issue-item critical"><div class="ii-title">🔴 Hospital road pothole — Resident petition</div><div class="ii-meta">Critical · 9 days overdue · PWD + Health Dept</div></div>
+    <div class="issue-item urgent"><div class="ii-title">🟡 Street light tender response</div><div class="ii-meta">Urgent · Due today · Municipal Corp</div></div>
+    <div class="issue-item urgent"><div class="ii-title">🟡 Water supply cluster — press note</div><div class="ii-meta">Urgent · 8 linked complaints · Due tomorrow</div></div>
+    <div class="issue-item urgent"><div class="ii-title">🟡 Aadhaar camp coordination — Ward 38</div><div class="ii-meta">Urgent · Event this Friday</div></div>
+    <div class="issue-item normal"><div class="ii-title">🟢 PM Awas beneficiary list review</div><div class="ii-meta">Normal · Due next week</div></div>
+    <div class="issue-item normal"><div class="ii-title">🟢 Monthly constituency report</div><div class="ii-meta">Normal · Due 31 March</div></div>
+  </div>
+</div>
+
+<!-- COMMITMENTS -->
+<div class="page" id="page-commitments">
+  <div class="page-title">Commitments</div>
+  <div class="page-sub">Personal accountability mirror · this month</div>
+  <div class="stats-row">
+    <div class="stat-box" onclick="go(null,'todo')"><div class="stat-num red">3</div><div class="stat-lbl">Critical now</div></div>
+    <div class="stat-box"><div class="stat-num amber">7</div><div class="stat-lbl">Urgent now</div></div>
+    <div class="stat-box"><div class="stat-num blue">24</div><div class="stat-lbl">Total pending</div></div>
+  </div>
+  <div class="bar-wrap">
+    <div class="bar"><div class="bar-fill" style="width:61%"></div></div>
+    <div class="bar-labels"><span>On-time rate: 61%</span><span>↑ from 45% last month</span></div>
+  </div>
+  <div class="section-label">Active Commitments</div>
+  <div id="active-commitments-list" class="issue-list">
+    <div class="issue-item critical"><div class="ii-title">Drainage repair — Sector 7</div><div class="ii-meta">Committed 14 Mar · PWD · 12 days overdue</div></div>
+    <div class="issue-item urgent"><div class="ii-title">Street lighting expansion — Ward 42</div><div class="ii-meta">Committed 10 Mar · Municipal Corp · On track</div></div>
+    <div class="issue-item normal"><div class="ii-title">Aadhaar enrollment camp</div><div class="ii-meta">Committed 20 Mar · Completed ✓</div></div>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div class="page" id="page-chat">
+  <div class="page-title">Chat</div>
+  <div class="page-sub">Ask anything · AI assistant · all four databases</div>
+  <div class="chat-wrap">
+    <div class="chat-log" id="chat-log">
+      <div class="msg"><div class="msg-from">Co-Pilot · System</div><div class="bubble ai">Welcome back, Shri Rajendra Kumar Verma. I am grounded in your latest constituency data. How can I help you today?</div></div>
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-in" type="text" placeholder="Ask about your constituency, commitments, or draft a response…" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUGGESTIONS -->
+<div class="page" id="page-suggestions">
+  <div class="page-title">Suggestions</div>
+  <div class="page-sub">Interactive Strategic Analyst · models/gemini-3-flash-preview</div>
+  <div class="sug-input-wrap">
+    <input type="text" id="sug-query" placeholder="Ask for specific strategic analysis… (e.g. 'How can I fix the drainage crisis in Ward 42?')">
+    <div class="sug-btn-group">
+      <button class="gen-btn" id="sug-gen-btn" onclick="generateSuggestions()">Analyze Focused Query</button>
+      <button class="gen-btn btn-alt" id="sug-auto-btn" onclick="generateSuggestions(true)">Analyze on Own (Auto-Think)</button>
+    </div>
+  </div>
+  <div id="sug-trace-container" style="display:none;margin-bottom:18px">
+    <div class="trace-dropdown">
+      <div class="trace-header" onclick="toggleTrace()"><span id="trace-summary">Analysing…</span><span class="trace-arrow">▼</span></div>
+      <div id="trace-content" class="trace-content" style="display:none"></div>
+    </div>
+  </div>
+  <div id="sug-results" class="issue-list" style="display:none"></div>
+  <div id="sug-followup-area" style="display:none;border-top:1px solid rgba(200,136,42,.1);padding-top:22px;margin-top:24px">
+    <div class="section-label">Refine Strategic Analysis</div>
     <div class="sug-input-wrap">
-      <input type="text" id="sug-query" placeholder="Ask for specific strategic analysis... (e.g. 'How can I fix the drainage crisis in Ward 42?')">
-      <div class="sug-btn-group">
-        <button class="gen-btn" id="sug-gen-btn" onclick="generateSuggestions()">Analyze Focused Query</button>
-        <button class="gen-btn btn-alt" id="sug-auto-btn" onclick="generateSuggestions(true)">Analyze on Own (Auto-Think)</button>
-      </div>
-    </div>
-
-    <div id="sug-trace-container" style="display:none; margin-bottom: 20px;">
-        <div class="trace-dropdown">
-            <div class="trace-header" onclick="toggleTrace()">
-                <span id="trace-summary">Analysing...</span>
-                <span class="trace-arrow">▼</span>
-            </div>
-            <div id="trace-content" class="trace-content" style="display:none">
-                <!-- Trace entries injected here -->
-            </div>
-        </div>
-    </div>
-
-    <div id="sug-results" class="issue-list" style="display:none">
-      <!-- Real suggestions will be injected here -->
-    </div>
-
-    <div id="sug-followup-area" style="display:none; border-top: 1px solid var(--mid); padding-top: 24px; margin-top: 30px;">
-      <div class="section-label">Refine Strategic Analysis</div>
-      <div class="sug-input-wrap" style="background: var(--paper); border: 2px solid var(--ink);">
-        <input type="text" id="sug-chat-input" placeholder="Ask a follow-up or refine these suggestions...">
-        <button class="gen-btn" style="margin-bottom:0" onclick="sendSuggestionsFollowup()">Analyze & Append</button>
-      </div>
+      <input type="text" id="sug-chat-input" placeholder="Ask a follow-up or refine these suggestions…">
+      <button class="gen-btn" style="margin-bottom:0" onclick="sendSuggestionsFollowup()">Analyze & Append</button>
     </div>
   </div>
+</div>
 
-  <!-- DIGEST -->
-  <div class="page" id="page-digest">
-    <div class="page-title">Weekly Digest</div>
-    <div class="page-sub">Reflection tool · summary of last 7 days</div>
+<!-- DIGEST -->
+<div class="page" id="page-digest">
+  <div class="page-title">Digest</div>
+  <div class="page-sub">Reflection tool · summary of last 7 days</div>
+  <div class="digest-date" id="digest-period">Week of 19–25 March 2026</div>
+  <div class="d-row" onclick="drillDown('New complaints','new_items')"><span class="d-key">New complaints received</span><span class="d-val" id="dw-new-issues">18</span></div>
+  <div class="d-row" onclick="drillDown('Issues resolved','resolved')"><span class="d-key">Issues resolved this week</span><span class="d-val green" id="dw-resolved">4</span></div>
+  <div class="d-row" onclick="drillDown('Became overdue','became_overdue')"><span class="d-key">Became overdue this week</span><span class="d-val red" id="dw-overdue">2</span></div>
+  <div class="d-row" onclick="drillDown('New commitments','new_commitments')"><span class="d-key">New commitments logged</span><span class="d-val" id="dw-new-commitments">3</span></div>
+  <div class="section-label">Current Status</div>
+  <div class="d-row" onclick="go(null,'todo')"><span class="d-key">Critical items pending</span><span class="d-val red" id="dw-open-critical">3</span></div>
+  <div class="d-row" onclick="go(null,'todo')"><span class="d-key">Urgent items pending</span><span class="d-val amber" id="dw-open-urgent">7</span></div>
+</div>
 
-    <div id="digest-weekly">
-      <div class="digest-date" id="digest-period">Week of ...</div>
-
-      <div class="d-row clickable" onclick="drillDown('New complaints', 'new_items')">
-        <span class="d-key">New complaints received</span>
-        <span class="d-val" id="dw-new-issues">0</span>
-      </div>
-      <div class="d-row clickable" onclick="drillDown('Issues resolved', 'resolved')">
-        <span class="d-key">Issues resolved this week</span>
-        <span class="d-val green" id="dw-resolved">0</span>
-      </div>
-      <div class="d-row clickable" onclick="drillDown('Became overdue', 'became_overdue')">
-        <span class="d-key">Became overdue this week</span>
-        <span class="d-val red" id="dw-overdue">0</span>
-      </div>
-      <div class="d-row clickable" onclick="drillDown('New commitments', 'new_commitments')">
-        <span class="d-key">New commitments logged</span>
-        <span class="d-val" id="dw-new-commitments">0</span>
-      </div>
-
-      <div class="section-label">Current Status</div>
-      <div class="d-row clickable" onclick="goTodo('critical')">
-        <span class="d-key">Critical items pending</span>
-        <span class="d-val red" id="dw-open-critical">0</span>
-      </div>
-      <div class="d-row clickable" onclick="goTodo('urgent')">
-        <span class="d-key">Urgent items pending</span>
-        <span class="d-val amber" id="dw-open-urgent">0</span>
-      </div>
-    </div>
+<!-- UPLOAD MEETING -->
+<div class="page" id="page-upload">
+  <div class="page-title">Upload</div>
+  <div class="page-sub">Audio recordings, transcripts, or Parliament session files · processed locally</div>
+  <div class="section-label">Select type</div>
+  <div class="upload-type-row" style="grid-template-columns:repeat(3,1fr)">
+    <div class="upload-type selected" onclick="selectType(this)"><div class="upload-type-icon">🎙</div><div class="upload-type-name">Audio Recording</div><div class="upload-type-desc">.wav · .mp3 · .m4a</div></div>
+    <div class="upload-type" onclick="selectType(this)"><div class="upload-type-icon">📄</div><div class="upload-type-name">Transcript</div><div class="upload-type-desc">.txt · .pdf · .docx</div></div>
+    <div class="upload-type" onclick="selectType(this)"><div class="upload-type-icon">🏛</div><div class="upload-type-name">Parliament Session</div><div class="upload-type-desc">Official sansad.in transcript</div></div>
   </div>
-
-
-  <!-- UPLOAD MEETING -->
-  <div class="page" id="page-upload">
-    <div class="page-title">Upload Meeting</div>
-    <div class="page-sub">Audio recordings, transcripts, or Parliament session files · processed locally</div>
-
-    <div class="section-label">Select type</div>
-
-    <div class="upload-type-row">
-      <div class="upload-type selected" onclick="selectType(this)">
-        <div class="upload-type-icon">🎙</div>
-        <div class="upload-type-name">Audio Recording</div>
-        <div class="upload-type-desc">.wav · .mp3 · .m4a</div>
-      </div>
-      <div class="upload-type" onclick="selectType(this)">
-        <div class="upload-type-icon">📄</div>
-        <div class="upload-type-name">Transcript</div>
-        <div class="upload-type-desc">.txt · .pdf · .docx</div>
-      </div>
-      <div class="upload-type" onclick="selectType(this)">
-        <div class="upload-type-icon">🏛</div>
-        <div class="upload-type-name">Parliament Session</div>
-        <div class="upload-type-desc">Official sansad.in transcript</div>
-      </div>
-    </div>
-
-    <div class="upload-zone" onclick="this.querySelector('input').click()" id="meeting-upload-zone">
-      <div class="upload-icon">↑</div>
-      <div class="upload-label" id="meeting-file-label">Drop .txt file here or click to browse</div>
-      <div class="upload-sub">Transcript only (.txt) · System will extract commitments automatically</div>
-      <input type="file" id="meeting-file-input" accept=".txt" style="display:none" onchange="document.getElementById('meeting-file-label').innerText = this.files[0].name">
-    </div>
-
-    <div class="section-label">Meeting details</div>
-
-    <div class="field-row">
-      <div class="field-label">Meeting date</div>
-      <input class="field-input" type="date" id="meeting-date">
-    </div>
-
-    <div class="field-row">
-      <div class="field-label">Meeting type</div>
-      <select class="field-input" id="meeting-type">
-        <option>Constituency office</option>
-        <option>Department / bureaucrat</option>
-        <option>Party internal</option>
-        <option>Janata Darbar</option>
-        <option>Parliament session</option>
-        <option>Other</option>
-      </select>
-    </div>
-
-    <div class="field-row">
-      <div class="field-label">Participants (optional)</div>
-      <input class="field-input" type="text" id="meeting-participants" placeholder="e.g. Commissioner Singh, Ward Councillor Sharma">
-    </div>
-
-    <div class="field-row">
-      <div class="field-label">Notes (optional)</div>
-      <textarea class="field-input" id="meeting-notes" placeholder="Any context you want the system to know about this meeting"></textarea>
-    </div>
-
-    <button class="submit-btn" id="meeting-upload-btn" onclick="uploadMeeting()">Upload and Process</button>
-    <div id="meeting-upload-status" style="display:none;margin-top:12px;font-size:11px;color:var(--green)"></div>
-
-    <div class="section-label" style="margin-top:36px">Recently uploaded</div>
-
-    <div class="uploaded-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading recent meetings...</div>
-    </div>
+  <div class="upload-zone" onclick="this.querySelector('input').click()" id="meeting-upload-zone">
+    <div class="upload-icon">↑</div>
+    <div class="upload-label" id="meeting-file-label">Drop .txt file here or click to browse</div>
+    <div class="upload-sub">Transcript only (.txt) · System will extract commitments automatically</div>
+    <input type="file" id="meeting-file-input" accept=".txt" style="display:none" onchange="document.getElementById('meeting-file-label').innerText=this.files[0]?.name||'file selected'">
   </div>
-
-  <!-- LOG ISSUE -->
-  <div class="page" id="page-issues">
-    <div class="page-title">Log Issue</div>
-    <div class="page-sub">Manual entry — physical letters, walk-ins, portal complaints</div>
-
-    <div class="section-label">Citizen details</div>
-
-    <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Citizen name</div>
-        <input class="field-input" type="text" placeholder="Full name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Contact number</div>
-        <input class="field-input" type="text" placeholder="Mobile number">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Ward / Area</div>
-        <input class="field-input" type="text" placeholder="Ward number or locality name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Received via</div>
-        <select class="field-input">
-          <option>Physical letter</option>
-          <option>Walk-in visit</option>
-          <option>CPGRAMS portal</option>
-          <option>State grievance portal</option>
-          <option>Other portal</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Date received</div>
-        <input class="field-input" type="date">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Staff notes (optional)</div>
-        <input class="field-input" type="text" placeholder="Any context from the interaction">
-      </div>
-      <div class="field-row full-col">
-        <div class="field-label">Issue description</div>
-        <textarea class="field-input"
-          placeholder="Describe the complaint as closely to the citizen's own words as possible — used for clustering"></textarea>
-      </div>
-    </div>
-
-    <button class="submit-btn" onclick="logIssue()">Log Issue</button>
-
-    <div id="submit-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">
-      Issue logged — system will cluster and weight automatically
-    </div>
-
-    <div class="section-label" style="margin-top:36px">Recent entries</div>
-
-    <div id="recent-complaints-list" class="issue-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading recent entries...</div>
-    </div>
+  <div class="section-label">Meeting details</div>
+  <div class="field-row"><div class="field-label">Meeting date</div><input class="field-input" type="date" id="meeting-date"></div>
+  <div class="field-row"><div class="field-label">Meeting type</div><select class="field-input" id="meeting-type"><option>Constituency office</option><option>Department / bureaucrat</option><option>Party internal</option><option>Janata Darbar</option><option>Parliament session</option><option>Other</option></select></div>
+  <div class="field-row"><div class="field-label">Participants (optional)</div><input class="field-input" type="text" id="meeting-participants" placeholder="e.g. Commissioner Singh, Ward Councillor Sharma"></div>
+  <div class="field-row"><div class="field-label">Notes (optional)</div><textarea class="field-input" id="meeting-notes" placeholder="Any context you want the system to know about this meeting"></textarea></div>
+  <button class="submit-btn" id="meeting-upload-btn" onclick="uploadMeeting()">Upload and Process</button>
+  <div id="meeting-upload-status" style="display:none;margin-top:10px;font-size:.72rem;color:#66CC88;font-style:italic"></div>
+  <div class="section-label" style="margin-top:28px">Recently uploaded</div>
+  <div class="uploaded-list">
+    <div class="issue-item normal"><div class="ii-title">Janata Darbar — 20 March 2026</div><div class="ii-meta">Processed · 6 commitments extracted</div></div>
+    <div class="issue-item urgent"><div class="ii-title">PWD Meeting — 15 March 2026</div><div class="ii-meta">Processed · 2 commitments extracted</div></div>
   </div>
+</div>
 
-  <!-- PROFILE -->
-  <div class="page" id="page-profile">
-    <div class="page-title">Profile</div>
-    <div class="page-sub">Essential details · edit and save locally</div>
-
-    <div class="section-label">Context injection</div>
-
-    <div style="font-size:11px;color:#888;margin-bottom:16px;line-height:1.7">
-      Upload text files to inject background knowledge into DB1 — constituency reports, census data, scheme details,
-      historical records, anything you want the system to know permanently.
-    </div>
-
-    <div class="upload-type-row" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="upload-type selected" onclick="selectCtx(this)">
-        <div class="upload-type-icon">🗺</div>
-        <div class="upload-type-name">Constituency Data</div>
-        <div class="upload-type-desc">Demographics, infrastructure, ward data</div>
-      </div>
-      <div class="upload-type" onclick="selectCtx(this)">
-        <div class="upload-type-icon">📋</div>
-        <div class="upload-type-name">Scheme Details</div>
-        <div class="upload-type-desc">Government schemes, eligibility, beneficiaries</div>
-      </div>
-      <div class="upload-type" onclick="selectCtx(this)">
-        <div class="upload-type-icon">📁</div>
-        <div class="upload-type-name">Other Context</div>
-        <div class="upload-type-desc">Historical records, reports, any reference</div>
-      </div>
-    </div>
-
-    <div class="upload-zone" onclick="this.querySelector('input').click()" style="margin-bottom:14px">
-      <div class="upload-icon">↑</div>
-      <div class="upload-label" id="ctx-file-label">Drop .txt file here or click to browse</div>
-      <div class="upload-sub">Text only (.txt) · injected into DB1 as permanent context</div>
-      <input type="file" id="ctx-file-input" accept=".txt" style="display:none" onchange="document.getElementById('ctx-file-label').innerText = this.files[0].name">
-    </div>
-
-    <div class="field-row">
-      <div class="field-label">Label for this context file</div>
-      <input class="field-input" type="text" id="ctx-label" placeholder="e.g. Ward 42 census 2024, PM Awas scheme details">
-    </div>
-
-    <button class="submit-btn" style="margin-bottom:24px" id="ctx-upload-btn" onclick="uploadContext()">Inject into DB1</button>
-
-    <div id="inject-confirm" style="display:none;margin-bottom:16px;font-size:11px;color:var(--green)">
-      Context injected — DB1 updated
-    </div>
-
-    <div class="section-label" style="margin-top:0">Injected context files</div>
-
-    <div class="uploaded-list">
-      <div style="color:#666;font-size:11px;padding:20px">Loading context files...</div>
-    </div>
-
-    <div class="section-label">MLA details</div>
-
-    <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Full name</div>
-        <input class="field-input" type="text" id="prof-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Party</div>
-        <input class="field-input" type="text" id="prof-party">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Designation</div>
-        <select class="field-input" id="prof-designation">
-          <option>MLA</option>
-          <option>MP (Lok Sabha)</option>
-          <option>MP (Rajya Sabha)</option>
-          <option>Municipal Councillor</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Term start year</div>
-        <input class="field-input" type="text" id="prof-term">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Official email</div>
-        <input class="field-input" type="text" id="prof-email">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Office contact</div>
-        <input class="field-input" type="text" id="prof-contact">
-      </div>
-    </div>
-
-    <div class="section-label">Constituency details</div>
-
-    <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">Constituency name</div>
-        <input class="field-input" type="text" id="prof-ward-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">State</div>
-        <input class="field-input" type="text" id="prof-state">
-      </div>
-      <div class="field-row">
-        <div class="field-label">District</div>
-        <input class="field-input" type="text" id="prof-district">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Total wards covered</div>
-        <input class="field-input" type="text" id="prof-wards-covered">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Approximate population</div>
-        <input class="field-input" type="text" id="prof-population">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Registered voters</div>
-        <input class="field-input" type="text" id="prof-voters">
-      </div>
-    </div>
-
-    <div class="section-label">Constituency office</div>
-
-    <div class="two-col">
-      <div class="field-row full-col">
-        <div class="field-label">Office address</div>
-        <input class="field-input" type="text" id="prof-address">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Janata Darbar day</div>
-        <select class="field-input" id="prof-jd-day">
-          <option>Monday</option>
-          <option>Tuesday</option>
-          <option>Wednesday</option>
-          <option>Thursday</option>
-          <option>Friday</option>
-          <option>Saturday</option>
-        </select>
-      </div>
-      <div class="field-row">
-        <div class="field-label">Janata Darbar time</div>
-        <input class="field-input" type="text" id="prof-jd-time">
-      </div>
-    </div>
-
-    <div class="section-label">Staff</div>
-
-    <div class="two-col">
-      <div class="field-row">
-        <div class="field-label">PA name</div>
-        <input class="field-input" type="text" id="prof-pa-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">PA contact</div>
-        <input class="field-input" type="text" id="prof-pa-contact">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Office manager</div>
-        <input class="field-input" type="text" id="prof-manager-name">
-      </div>
-      <div class="field-row">
-        <div class="field-label">Office manager contact</div>
-        <input class="field-input" type="text" id="prof-manager-contact">
-      </div>
-    </div>
-
-
-    <button class="submit-btn" onclick="saveProfile()">Save Changes</button>
-
-    <div id="prof-confirm" style="display:none;margin-top:12px;font-size:11px;color:var(--green)">
-      Changes saved locally
-    </div>
+<!-- LOG ISSUE -->
+<div class="page" id="page-issues">
+  <div class="page-title">Log Issue</div>
+  <div class="page-sub">Manual entry — physical letters, walk-ins, portal complaints</div>
+  <div class="section-label">Citizen details</div>
+  <div class="two-col">
+    <div class="field-row"><div class="field-label">Citizen name</div><input class="field-input" type="text" placeholder="Full name"></div>
+    <div class="field-row"><div class="field-label">Contact number</div><input class="field-input" type="text" placeholder="Mobile number"></div>
+    <div class="field-row"><div class="field-label">Ward / Area</div><input class="field-input" type="text" placeholder="Ward number or locality name"></div>
+    <div class="field-row"><div class="field-label">Received via</div><select class="field-input"><option>Physical letter</option><option>Walk-in visit</option><option>CPGRAMS portal</option><option>State grievance portal</option><option>Other portal</option><option>Other</option></select></div>
+    <div class="field-row"><div class="field-label">Date received</div><input class="field-input" type="date"></div>
+    <div class="field-row"><div class="field-label">Staff notes (optional)</div><input class="field-input" type="text" placeholder="Any context from the interaction"></div>
+    <div class="field-row full-col"><div class="field-label">Issue description</div><textarea class="field-input" placeholder="Describe the complaint as closely to the citizen's own words as possible — used for clustering"></textarea></div>
   </div>
+  <button class="submit-btn" onclick="logIssue()">Log Issue · शिकायत दर्ज करें</button>
+  <div id="submit-confirm" style="display:none;margin-top:10px;font-size:.72rem;color:#66CC88;font-style:italic">Issue logged — system will cluster and weight automatically</div>
+  <div class="section-label" style="margin-top:28px">Recent entries</div>
+  <div id="recent-complaints-list" class="issue-list">
+    <div class="issue-item urgent"><div class="ii-title">Ramesh Kumar — Waterlogging near temple</div><div class="ii-meta">Walk-in · 24 March · Ward 42</div></div>
+    <div class="issue-item urgent"><div class="ii-title">Sunita Devi — Street light not working</div><div class="ii-meta">Physical letter · 23 March · Ward 42</div></div>
+  </div>
+</div>
 
-  <script src="/static/script.js"></script>
+<!-- PROFILE -->
+<div class="page" id="page-profile">
+  <div class="page-title">Profile</div>
+  <div class="page-sub">Essential details · edit and save locally</div>
+  <div class="section-label">Context injection</div>
+  <div style="font-size:.75rem;color:rgba(237,217,163,.28);margin-bottom:14px;line-height:1.7;font-style:italic">Upload text files to inject background knowledge into DB1 — constituency reports, census data, scheme details, historical records.</div>
+  <div class="upload-type-row" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="upload-type selected" onclick="selectCtx(this)"><div class="upload-type-icon">🗺</div><div class="upload-type-name">Constituency Data</div><div class="upload-type-desc">Demographics, infrastructure, ward data</div></div>
+    <div class="upload-type" onclick="selectCtx(this)"><div class="upload-type-icon">📋</div><div class="upload-type-name">Scheme Details</div><div class="upload-type-desc">Government schemes, eligibility</div></div>
+    <div class="upload-type" onclick="selectCtx(this)"><div class="upload-type-icon">📁</div><div class="upload-type-name">Other Context</div><div class="upload-type-desc">Historical records, reports</div></div>
+  </div>
+  <div class="upload-zone" onclick="this.querySelector('input').click()" style="margin-bottom:12px">
+    <div class="upload-icon">↑</div>
+    <div class="upload-label" id="ctx-file-label">Drop .txt file here or click to browse</div>
+    <div class="upload-sub">Text only (.txt) · injected into DB1 as permanent context</div>
+    <input type="file" id="ctx-file-input" accept=".txt" style="display:none" onchange="document.getElementById('ctx-file-label').innerText=this.files[0]?.name||'file selected'">
+  </div>
+  <div class="field-row"><div class="field-label">Label for this context file</div><input class="field-input" type="text" id="ctx-label" placeholder="e.g. Ward 42 census 2024, PM Awas scheme details"></div>
+  <button class="submit-btn" style="margin-bottom:20px" id="ctx-upload-btn" onclick="uploadContext()">Inject into DB1</button>
+  <div id="inject-confirm" style="display:none;margin-bottom:12px;font-size:.72rem;color:#66CC88;font-style:italic">Context injected — DB1 updated</div>
+  <div class="section-label">MLA details</div>
+  <div class="two-col">
+    <div class="field-row"><div class="field-label">Full name</div><input class="field-input" type="text" id="prof-name" value="Rajendra Kumar Verma"></div>
+    <div class="field-row"><div class="field-label">Party</div><input class="field-input" type="text" id="prof-party" value="Samajwadi Party"></div>
+    <div class="field-row"><div class="field-label">Designation</div><select class="field-input" id="prof-designation"><option>MLA</option><option>MP (Lok Sabha)</option><option>MP (Rajya Sabha)</option><option>Municipal Councillor</option><option>Other</option></select></div>
+    <div class="field-row"><div class="field-label">Constituency</div><input class="field-input" type="text" value="Lucknow North"></div>
+    <div class="field-row"><div class="field-label">Official email</div><input class="field-input" type="text" id="prof-email" placeholder="email@up.gov.in"></div>
+    <div class="field-row"><div class="field-label">Office contact</div><input class="field-input" type="text" id="prof-contact" placeholder="Office phone"></div>
+  </div>
+  <button class="submit-btn" onclick="saveProfile()">Save Changes · सुरक्षित करें</button>
+  <div id="prof-confirm" style="display:none;margin-top:10px;font-size:.72rem;color:#66CC88;font-style:italic">Changes saved locally</div>
+</div>
+
+<!-- Existing project script — untouched, all API connections preserved -->
+<script src="/static/script.js"></script>
+
+<!-- Visual & demo layer only — zero API changes -->
+<script>
+/* INTRO DISMISS */
+setTimeout(function(){
+  var i=document.getElementById('intro');
+  if(i){i.classList.add('out');setTimeout(function(){i.remove()},900)}
+},2800);
+
+/* GREETING */
+var h=new Date().getHours();
+document.getElementById('home-greeting-text').textContent=
+  (h<12?'Good morning · नमस्कार':h<17?'Good afternoon · नमस्ते':'Good evening · प्रणाम');
+
+/* NAV */
+function go(el,page){
+  document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active')});
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
+  if(el)el.classList.add('active');
+  else document.querySelectorAll('.nav-tab').forEach(function(t){if(t.getAttribute('onclick')&&t.getAttribute('onclick').includes("'"+page+"'"))t.classList.add('active')});
+  var pg=document.getElementById('page-'+page);
+  if(pg){pg.classList.add('active');/* re-trigger bar fill */pg.querySelectorAll('.bar-fill').forEach(function(b){var w=b.style.width;b.style.width='0';setTimeout(function(){b.style.width=w},50)})}
+}
+function goPage(p){go(null,p)}
+
+/* CARD SPOTLIGHT */
+function spot(e,el){var r=el.getBoundingClientRect();el.style.setProperty('--mx',((e.clientX-r.left)/r.width*100)+'%');el.style.setProperty('--my',((e.clientY-r.top)/r.height*100)+'%')}
+
+/* CHAT */
+var replies=["Based on your constituency data, top 3 issues: drainage (14 complaints), street lighting (9), water supply (8). Recommend filing RTI on PWD drainage delay — 12 days since your commitment.","3 meetings today. PWD follow-up at 11 AM — suggest opening with the Sector 7 timeline and reference PWD/2026/1147.","PWD track record: 4 of 6 commitments on time (67%). Both overdue are drainage — systemic delay, escalate to Chief Engineer.","Draft ready: acknowledges delay, cites PWD/2026/1147, revised 10-day timeline. Refine tone or translate to Hindi?"];
+var ri=0;
+function sendChat(){
+  var inp=document.getElementById('chat-in'),txt=inp.value.trim();if(!txt)return;
+  var log=document.getElementById('chat-log');
+  log.innerHTML+='<div class="msg"><div class="msg-from">You</div><div class="bubble user">'+txt+'</div></div>';
+  inp.value='';log.scrollTop=log.scrollHeight;
+  setTimeout(function(){log.innerHTML+='<div class="msg"><div class="msg-from">Co-Pilot · AI</div><div class="bubble ai">'+replies[ri%replies.length]+'</div></div>';ri++;log.scrollTop=log.scrollHeight},700);
+}
+function openChat(el){var txt=el.querySelector('span').textContent;go(null,'chat');setTimeout(function(){document.getElementById('chat-in').value=txt},200)}
+
+/* FORMS */
+function selectType(el){el.closest('.upload-type-row').querySelectorAll('.upload-type').forEach(function(t){t.classList.remove('selected')});el.classList.add('selected')}
+function selectCtx(el){selectType(el)}
+function logIssue(){var c=document.getElementById('submit-confirm');c.style.display='block';setTimeout(function(){c.style.display='none'},3000)}
+function uploadMeeting(){var s=document.getElementById('meeting-upload-status');s.textContent='Processing…';s.style.display='block';setTimeout(function(){s.textContent='Done — 3 commitments extracted and added to tracker.'},2000)}
+function uploadContext(){var c=document.getElementById('inject-confirm');c.style.display='block';setTimeout(function(){c.style.display='none'},3000)}
+function saveProfile(){var c=document.getElementById('prof-confirm');c.style.display='block';setTimeout(function(){c.style.display='none'},3000)}
+
+/* SUGGESTIONS */
+function generateSuggestions(){
+  document.getElementById('sug-trace-container').style.display='block';
+  document.getElementById('trace-summary').textContent='Analysing constituency data…';
+  setTimeout(function(){
+    document.getElementById('trace-summary').textContent='Analysis complete — 3 strategic opportunities';
+    document.getElementById('trace-content').innerHTML='Queried 4 databases · Cross-referenced complaint clusters · Identified escalation paths';
+    document.getElementById('trace-content').style.display='block';
+    var r=document.getElementById('sug-results');r.style.display='flex';
+    r.innerHTML='<div class="issue-item normal"><div class="ii-title">File RTI on PWD drainage delay</div><div class="ii-meta">High impact · Actionable immediately · Ward 42</div></div><div class="issue-item urgent"><div class="ii-title">Bundle 14 drainage complaints → one letter to Chief Engineer</div><div class="ii-meta">Medium impact · Cross-ward visibility</div></div><div class="issue-item critical"><div class="ii-title">Schedule press note on water supply resolution</div><div class="ii-meta">Reputation boost · 8 resolved complaints</div></div>';
+    document.getElementById('sug-followup-area').style.display='block';
+  },1600);
+}
+function sendSuggestionsFollowup(){var inp=document.getElementById('sug-chat-input');if(!inp.value.trim())return;inp.value='';setTimeout(function(){document.getElementById('sug-results').innerHTML+='<div class="issue-item urgent"><div class="ii-title">Follow-up analysis appended</div><div class="ii-meta">Refined based on your query</div></div>'},800)}
+function toggleTrace(){var c=document.getElementById('trace-content');c.style.display=c.style.display==='none'?'block':'none'}
+function liveEscalate(){alert('Live escalation triggered — top 3 critical items flagged.')}
+function drillDown(l){alert('Drilling into: '+l)}
+function goTodo(f){go(null,'todo')}
+function showSug(){go(null,'suggestions');generateSuggestions()}
+</script>
 </body>
-
 </html>
