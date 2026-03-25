@@ -51,8 +51,14 @@ async function loadHome() {
   if (profile) {
     document.getElementById('top-user-name').innerText = profile.name;
     document.getElementById('top-user-sub').innerText = `${profile.designation} · ${profile.ward_name}`;
+
+    // Initials for avatar
+    const nameParts = (profile.name || '').trim().split(/\s+/);
+    const initials = nameParts.length > 1 ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]) : (nameParts[0] ? nameParts[0][0] : '..');
+    const initialsEl = document.getElementById('user-initials');
+    if (initialsEl) initialsEl.innerText = initials.toUpperCase();
+
     // Show first name or the only name
-    const nameParts = (profile.name || '').split(' ');
     const displayName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
     document.getElementById('hero-user-name').innerText = displayName;
     document.getElementById('hero-user-meta').innerText = `${profile.designation} · ${profile.ward_name} · Term since ${profile.term_start}`;
