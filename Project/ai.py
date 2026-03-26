@@ -11,6 +11,7 @@ def call_ai(prompt, model_name='gemini-3.1-flash-lite-preview'):
     Centralized function to call an AI model. 
     This wrapper abstracts the AI provider, ensuring easy swapping between
     Gemini, OpenAI, local LLMs, etc. for production flexibility.
+    Though not as advanced solution as discussed in the issues but a good start.
     Fixes #13
     """
     if not client:
