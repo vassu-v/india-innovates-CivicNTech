@@ -8,8 +8,10 @@ client = genai.Client(api_key=api_key) if api_key else None
 
 def call_ai(prompt, model_name='gemini-3.1-flash-lite-preview'):
     """
-    Centralized function to call an AI model.
-    Change this implementation to connect to OpenAI, Anthropic, local LLM, or anything else.
+    Centralized function to call an AI model. 
+    This wrapper abstracts the AI provider, ensuring easy swapping between
+    Gemini, OpenAI, local LLMs, etc. for production flexibility.
+    Fixes #13
     """
     if not client:
         raise Exception("AI client is not initialized (e.g. missing API key).")
