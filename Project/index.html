@@ -12,13 +12,18 @@
 
   <div class="topbar">
     <div class="logo">Co-Pilot <em>Finalé</em></div>
-    <div class="user-info">
-      <div>
-        <b id="top-user-name">Loading...</b>
-        <div id="top-user-sub" style="font-size: 11px; opacity: 0.7;">MLA · Loading...</div>
+    <div class="user-info" style="display: flex; align-items: center; gap: 15px;">
+      <div onclick="goPage('upload')" style="cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--mid); border: 1px solid var(--border); color: var(--ink);" title="Upload Meeting">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
       </div>
-      <div style="width: 32px; height: 32px; background: var(--mid); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--blue); font-size: 12px; border: 1px solid var(--border);">
-        <span id="user-initials">..</span>
+      <div onclick="goPage('profile')" style="display: flex; align-items: center; gap: 10px; cursor: pointer;" title="View Profile">
+        <div style="text-align: right;">
+          <b id="top-user-name">Loading...</b>
+          <div id="top-user-sub" style="font-size: 11px; opacity: 0.7;">MLA · Loading...</div>
+        </div>
+        <div style="width: 32px; height: 32px; background: var(--mid); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--blue); font-size: 12px; border: 1px solid var(--border);">
+          <span id="user-initials">..</span>
+        </div>
       </div>
     </div>
   </div>
@@ -30,9 +35,7 @@
     <div class="nav-tab" onclick="go(this,'chat')">Chat</div>
     <div class="nav-tab" onclick="go(this,'suggestions')">Suggestions</div>
     <div class="nav-tab" onclick="go(this,'digest')">Digest</div>
-    <div class="nav-tab" onclick="go(this,'upload')">Upload Meeting</div>
     <div class="nav-tab" onclick="go(this,'issues')">Log Issue</div>
-    <div class="nav-tab" onclick="go(this,'profile')">Profile</div>
   </div>
 
   <!-- HOME -->
@@ -122,17 +125,7 @@
         </div>
       </div>
 
-      <!-- SUGGESTIONS -->
-      <div class="home-card" onclick="goPage('suggestions')">
-        <div class="home-card-label">Strategic Suggestions <span>→</span></div>
-        <div id="home-suggestions-content">
-          <div style="color:#888;font-size:11px;padding:10px 0">AI is ready to analyze your latest governance data and provide strategic insights.</div>
-        </div>
-        <div style="margin-top:10px">
-          <button class="gen-btn" style="margin-bottom:0;font-size:9px;padding:7px 14px"
-            onclick="event.stopPropagation();showSug()">Generate now</button>
-        </div>
-      </div>
+
 
       <!-- COMPLAINT CLUSTERS -->
       <div class="home-card" onclick="goPage('issues')">
@@ -215,7 +208,7 @@
   <!-- SUGGESTIONS -->
   <div class="page" id="page-suggestions">
     <div class="page-title">Suggestions</div>
-    <div class="page-sub">Interactive Strategic Analyst · models/gemini-3-flash-preview</div>
+    <div class="page-sub">Interactive Strategic Analyst · gemini-2.5-flash-lite</div>
     <div class="sug-input-wrap">
       <input type="text" id="sug-query" placeholder="Ask for specific strategic analysis... (e.g. 'How can I fix the drainage crisis in Ward 42?')">
       <div class="sug-btn-group">
@@ -292,25 +285,7 @@
     <div class="page-title">Upload Meeting</div>
     <div class="page-sub">Audio recordings, transcripts, or Parliament session files · processed locally</div>
 
-    <div class="section-label">Select type</div>
 
-    <div class="upload-type-row">
-      <div class="upload-type selected" onclick="selectType(this)">
-        <div class="upload-type-icon">🎙</div>
-        <div class="upload-type-name">Audio Recording</div>
-        <div class="upload-type-desc">.wav · .mp3 · .m4a</div>
-      </div>
-      <div class="upload-type" onclick="selectType(this)">
-        <div class="upload-type-icon">📄</div>
-        <div class="upload-type-name">Transcript</div>
-        <div class="upload-type-desc">.txt · .pdf · .docx</div>
-      </div>
-      <div class="upload-type" onclick="selectType(this)">
-        <div class="upload-type-icon">🏛</div>
-        <div class="upload-type-name">Parliament Session</div>
-        <div class="upload-type-desc">Official sansad.in transcript</div>
-      </div>
-    </div>
 
     <div class="upload-zone" onclick="this.querySelector('input').click()" id="meeting-upload-zone">
       <div class="upload-icon">↑</div>
@@ -429,23 +404,7 @@
       historical records, anything you want the system to know permanently.
     </div>
 
-    <div class="upload-type-row" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="upload-type selected" onclick="selectCtx(this)">
-        <div class="upload-type-icon">🗺</div>
-        <div class="upload-type-name">Constituency Data</div>
-        <div class="upload-type-desc">Demographics, infrastructure, ward data</div>
-      </div>
-      <div class="upload-type" onclick="selectCtx(this)">
-        <div class="upload-type-icon">📋</div>
-        <div class="upload-type-name">Scheme Details</div>
-        <div class="upload-type-desc">Government schemes, eligibility, beneficiaries</div>
-      </div>
-      <div class="upload-type" onclick="selectCtx(this)">
-        <div class="upload-type-icon">📁</div>
-        <div class="upload-type-name">Other Context</div>
-        <div class="upload-type-desc">Historical records, reports, any reference</div>
-      </div>
-    </div>
+
 
     <div class="upload-zone" onclick="this.querySelector('input').click()" style="margin-bottom:14px">
       <div class="upload-icon">↑</div>
