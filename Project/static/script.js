@@ -785,6 +785,8 @@ async function loadRecentMeetings() {
 }
 
 let currentWorkingMemory = [];
+let chatHistory = [];
+let currentStrategicContext = null;
 
 async function sendChat() {
   const input = document.querySelector('.chat-input');
@@ -819,9 +821,14 @@ async function sendChat() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       query: query,
-      working_memory: currentWorkingMemory
+      working_memory: currentWorkingMemory,
+      history: chatHistory,
+      strategic_context: currentStrategicContext
     })
   });
+
+  // Track user message
+  chatHistory.push({ role: 'user', content: query });
 
   if (res) {
     // Update working memory for next turn
@@ -840,6 +847,9 @@ async function sendChat() {
     }
 
     bubble.innerHTML = markdownToHtml(res.response);
+    
+    // Track AI message
+    chatHistory.push({ role: 'ai', content: res.response });
     
     if (res.sources && res.sources.length > 0) {
       const sourcesDiv = document.createElement('div');
@@ -946,23 +956,29 @@ function renderThinkingTrace(data) {
 }
 
 async function transferSuggestionsToChat() {
-  const thinking = currentSuggestionsTrace.map(t => t.content).join("\n\n");
-  const log = document.querySelector('.chat-log');
+  // Capture ALL refinements (thinking trace) and results
+  const refinements = currentSuggestionsTrace.map(t => `Round ${t.round} (${t.type}): ${t.content}`).join("\n\n");
   
+  // Also capture the actual suggestions visible in UI
+  const suggestionsDiv = document.getElementById('sug-results');
+  const suggestionsText = suggestionsDiv ? suggestionsDiv.innerText : "";
+
+  currentStrategicContext = `=== PRIOR STRATEGIC ANALYSIS ===\n${suggestionsText}\n\n=== REFINEMENTS & THINKING TRACE ===\n${refinements}`;
+  
+  const log = document.querySelector('.chat-log');
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const bridgeMsg = document.createElement('div');
   bridgeMsg.className = 'msg';
   bridgeMsg.innerHTML = `
     <div class="msg-from">Co-Pilot · System Bridge · ${time}</div>
     <div class="bubble ai" style="border-left: 4px solid var(--accent); font-size: 0.9em; opacity: 0.9;">
-      <strong>Strategic Context Transferred:</strong> I have imported the thinking trace and patterns from your Suggestions analysis. How should we proceed with these insights?
+      <strong>Strategic Context & Refinements Transferred:</strong> I have imported the full iterative analysis and suggested interventions. How should we proceed with these insights?
     </div>
   `;
   log.appendChild(bridgeMsg);
   
-  // Inject into working memory if possible, or just pre-set input
   const input = document.querySelector('.chat-input');
-  input.value = "Let's discuss the strategic patterns you just found.";
+  input.value = "Let's discuss the strategic insights and refinements you just generated.";
   
   goPage('chat');
   input.focus();

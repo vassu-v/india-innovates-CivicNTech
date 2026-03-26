@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 import google.genai as genai
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import ai
+import ai
 
 # Load environment variables
 load_dotenv()
@@ -305,19 +307,30 @@ def assemble_context(query, profile=None, digest=None, top_items=None, clusters=
             
     return l1 + l2 + l3, nodes
 
-def chat(query, profile=None, digest=None, top_items=None, clusters=None):
+def chat(query, profile=None, digest=None, top_items=None, clusters=None, strategic_context=None, history=None):
     context, nodes = assemble_context(query, profile, digest, top_items, clusters)
-    client = get_client()
-    if not client: return {"response": "API Key missing.", "sources": []}
+    
+    # Format history if present
+    history_str = ""
+    if history:
+        history_str = "\n=== CONVERSATION HISTORY ===\n"
+        for msg in history:
+            role = "User" if msg.get("role") == "user" else "Assistant"
+            history_str += f"{role}: {msg.get('content')}\n"
     
     prompt = f"""You are Co-Pilot, an AI assistant for an Indian MLA.
 You have access to the MLA's complete governance data through the context below.
 
 SYSTEM INSTRUCTIONS:
-1. Answer using ONLY the provided context.
+1. Answer using ONLY the provided context and the conversation history.
 2. Be specific. Reference actual data, counts, and dates.
 3. If the context is insufficient, say so clearly.
 4. Cite source type inline: (commitment_history), (complaint_pattern), (context_file).
+
+STRATEGIC CONTEXT (FROM PREVIOUS ANALYSIS):
+{strategic_context if strategic_context else "None provided."}
+
+{history_str}
 
 SELF-INDEXING (AI MEMORY):
 If you learn something new about the MLA's preferences, staff, or recurring patterns that IS NOT already in the context, you MUST store it using this format at the end of your response:
@@ -330,11 +343,11 @@ QUESTION:
 {query}
 """
     try:
-        response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=prompt)
+        response_text = ai.call_ai(prompt)
         sources = [{"id": n["id"], "domain": n["domain"], "title": n["title"]} for n in nodes]
         # Include embeddings for frontend-to-backend "Working Memory" loop
         return {
-            "response": response.text.strip(), 
+            "response": response_text, 
             "sources": sources,
             "working_memory": [n["embedding"] for n in nodes if n.get("embedding") is not None]
         }
@@ -507,7 +520,7 @@ THINKING: [strategic highlights and pattern discovery]
 
     current_round = 1
     try:
-        r1_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=round_1_prompt).text.strip()
+        r1_response = ai.call_ai(round_1_prompt)
         thinking_trace.append({"round": 1, "type": "analysis", "content": r1_response, "timestamp": datetime.datetime.now().isoformat()})
 
         if "TOOL_CALL:" in r1_response:
@@ -536,7 +549,7 @@ CURRENT DATA:
 You may call one more tool if needed, or proceed.
 Respond with TOOL_CALL or READY as before.
 """
-            r2_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=round_2_prompt).text.strip()
+            r2_response = ai.call_ai(round_2_prompt)
             thinking_trace.append({"round": 2, "type": "analysis", "content": r2_response, "timestamp": datetime.datetime.now().isoformat()})
             current_round = 2
 
@@ -585,7 +598,7 @@ CRITICAL RULES:
 Return a JSON array only. No markdown.
 Each object: {{ "priority": "...", "title": "...", "body": "..." }}
 """
-        final_response = client.models.generate_content(model='models/gemini-3-flash-preview', contents=final_prompt).text.strip()
+        final_response = ai.call_ai(final_prompt)
 
         if "```json" in final_response:
             final_response = final_response.split("```json")[1].split("```")[0].strip()

@@ -8,6 +8,7 @@ import datetime
 from dotenv import load_dotenv
 import google.genai as genai
 import rag_engine
+import ai
 
 # Load environment variables
 load_dotenv()
@@ -133,11 +134,7 @@ Deadline inference rules if not explicit:
   question   -> 3 days from meeting date
   action     -> 5 days from meeting date
 """
-        response = client.models.generate_content(
-            model='models/gemini-3-flash-preview',
-            contents=prompt,
-        )
-        raw = response.text.strip()
+        raw = ai.call_ai(prompt)
         # Clean up any potential markdown backticks that Gemini might still output
         if raw.startswith("```json"):
             raw = raw[7:]
@@ -191,11 +188,7 @@ For each item, extract:
 Return a JSON array of objects only.
 No explanation. No markdown. No backticks. Just the JSON array.
 """
-        response = client.models.generate_content(
-            model='models/gemini-3-flash-preview',
-            contents=prompt,
-        )
-        raw = response.text.strip()
+        raw = ai.call_ai(prompt)
         if raw.startswith("```json"): raw = raw[7:]
         if raw.startswith("```"): raw = raw[3:]
         if raw.endswith("```"): raw = raw[:-3]

@@ -55,7 +55,19 @@ The Suggestion system is a multi-round autonomous agent designed for high-level 
 *   **Transparent Reasoning:** Every suggested intervention is accompanied by a full "Thinking Trace." This collapsible dropdown in the UI reveals the agent's step-by-step logic, the tools it called, and the data it used.
 *   **Data-Backed Output:** Generates 3-4 specific, actionable strategic interventions prioritized by urgency (Critical, Urgent, Normal), each referencing actual constituency data.
 
-### API Endpoints
+## AI Infrastructure — Centralized LLM Wrapper
+
+To ensure architectural consistency and ease of maintenance, all interaction with Large Language Models (LLMs) is channeled through a centralized wrapper:
+
+### The `ai.py` Module
+All Project-level engines (`main.py`, `rag_engine.py`, `commitment_engine.py`) no longer call the Gemini SDK directly. instead, they use the `ai.call_ai(prompt)` function.
+*   **Decoupled Logic:** Application logic is separated from provider-specific SDKs. If the model needs to be swapped (e.g., from `gemini-2.5-flash-lite` to a local LLM or another provider), it only needs to be changed in one file: `Project/ai.py`.
+*   **Uniform Configuration:** Ensures that model parameters (temperature, top_p, etc.) and model versions are consistent across all features (Chat, Suggestions, Extraction).
+*   **Global Model:** Currently standardized on `gemini-2.5-flash-lite` for an optimal balance of speed, reasoning capability, and cost-efficiency.
+
+---
+
+## API Endpoints
 ```
 GET  /api/todo                    — pending items, filterable by type/urgency/ward
 GET  /api/digest                  — weekly summary

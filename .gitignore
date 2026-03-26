@@ -4,3 +4,5 @@
 __pycache__/
 .env
 !docs/**/*.png
+copilot.db
+!Project/static/favicon.png

@@ -10,6 +10,7 @@ import commitment_engine
 import issue_engine
 import digest_engine
 import rag_engine
+import ai
 
 async def auto_escalate_task():
     while True:
@@ -63,6 +64,7 @@ class ChatRequest(BaseModel):
     query: str
     working_memory: list = []
     strategic_context: Optional[str] = None
+    history: List[dict] = [] # List of {role: "user"/"ai", content: "..."}
 
 # API Endpoints
 @app.post("/api/chat")
@@ -75,12 +77,8 @@ def chat(req: ChatRequest):
         route = rag_engine.needs_context(req.query, recent_embeddings)
 
         if route == "instant":
-            client = rag_engine.get_client()
-            res = client.models.generate_content(
-                model='models/gemini-3-flash-preview',
-                contents=f"You are Co-Pilot. Answer the user's greeting or general question warmly. Query: {req.query}"
-            )
-            return {"response": res.text.strip(), "sources": [], "routed": "instant"}
+            res_text = ai.call_ai(f"You are Co-Pilot. Answer the user's greeting or general question warmly. Query: {req.query}")
+            return {"response": res_text, "sources": [], "routed": "instant"}
 
         if route == "follow-up":
             # Just call Gemini directly with history (no new search)
@@ -88,7 +86,8 @@ def chat(req: ChatRequest):
             res_data = rag_engine.chat(
                 query=req.query,
                 profile=commitment_engine.get_profile(),
-                strategic_context=req.strategic_context
+                strategic_context=req.strategic_context,
+                history=req.history
             )
             res_data["routed"] = "follow-up"
             return res_data
@@ -109,7 +108,8 @@ def chat(req: ChatRequest):
             digest=digest,
             top_items=todo["meeting_items"],
             clusters=cluster_list,
-            strategic_context=req.strategic_context
+            strategic_context=req.strategic_context,
+            history=req.history
         )
 
         # 3. Post-Process: AI Self-Memory
