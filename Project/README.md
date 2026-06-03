@@ -1,17 +1,18 @@
-# CivicNTech Co-Pilot — Finalé ![Finalé](https://img.shields.io/badge/Status-Finalé-brightgreen)
+# CivicNTech Co-Pilot — UI Concept ![UI-Only](https://img.shields.io/badge/Status-UI--Only-blue)
 
-AI-powered governance assistant for Indian elected representatives. Tracks commitments made in meetings, clusters citizen complaints by similarity, escalates overdue items automatically, and surfaces a weekly accountability digest. Now with full RAG integration for intelligent chat and strategic suggestions.
+**This is a UI-only demonstration branch.**
+
+All backend logic, engines, and database dependencies have been removed to provide a lightweight, standalone visualization of the Co-Pilot dashboard.
+
+### Key Features of this Branch:
+- **Standalone UI:** No Python backend or database required.
+- **Mocked Data:** API calls are intercepted in the browser and return static sample data.
+- **Concept Note:** A floating informational button in the bottom-right corner redirects to the main repository for the full functional version.
 
 ---
 
-## What Works (Finalé)
-
-### Engines
-- **Commitment Engine** — Extracts commitments, questions, and action items from meeting transcripts using Gemini. Falls back gracefully if API key is missing — stores raw text, never crashes. Tracks deadlines, extensions, and resolution history.
-- **Issue Engine** — Logs citizen complaints and clusters similar ones using vector embeddings (sentence-transformers, all-MiniLM-L6-v2). Runs fully locally using `sqlite-vec`.
-- **Digest Engine** — Generates weekly summaries: new items by type, resolved vs overdue, resolution rate, most overdue item. Pure SQL, no LLM.
-- **Auto-Escalation** — Runs every hour in the background. Recalculates weight and urgency for all pending items based on days overdue (W1 → W2 → W3 → W5 → W8).
-- **RAG Engine** — Provides intelligent retrieval-augmented generation. Indexes context files, commitment history, and complaint patterns to power Chat and Suggestions. Uses local embeddings and Gemini for reasoning.
+## Original Project Description
+AI-powered governance assistant for Indian elected representatives. Tracks commitments made in meetings, clusters citizen complaints by similarity, escalates overdue items automatically, and surfaces a weekly accountability digest. Now with full RAG integration for intelligent chat and strategic suggestions.
 
 ### Dashboard Pages
 | Page | Status |
@@ -92,34 +93,14 @@ POST /api/profile                 — update profile
 
 ---
 
-## Setup
+## Running the UI Concept
 
+Since this is a static UI demonstration, you can run it using any simple web server.
+
+### Example: Using Python's built-in server
 ```bash
-pip install fastapi uvicorn google-genai python-dotenv sentence-transformers sqlite-vec pysqlite3-binary
-```
-
-*Note: `pysqlite3-binary` is recommended for environments where the system `sqlite3` does not support extension loading.*
-
-Create `.env` in the project root:
-```
-GEMINI_API_KEY=your_key_here
-```
-
-Gemini is used for transcript extraction, chat, and suggestions. Everything else runs without it.
-
----
-
-## Running
-
-### 1. Seed the database
-Populate the database with sample MLA profile, commitments, and citizen complaints.
-```bash
-PYTHONPATH=Project python Project/seed.py --reset
-```
-
-### 2. Start the server
-```bash
-PYTHONPATH=Project python -m uvicorn main:app --app-dir Project --port 8000
+cd Project
+python3 -m http.server 8000
 ```
 
 ### 3. Open the dashboard
