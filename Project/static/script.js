@@ -14,6 +14,94 @@ function markdownToHtml(text) {
   return html;
 }
 
+// MOCKING GLOBAL FETCH FOR UI-ONLY CONCEPT
+window.fetch = async (url, options = {}) => {
+  console.log('MOCK Fetch:', url);
+
+  const mockData = {
+    '/api/stats': {
+      all_time: {
+        most_reliable_contact: "PWD Department",
+        avg_days_to_resolve: 14.2,
+        extension_rate: 15
+      }
+    },
+    '/api/digest': {
+      open_right_now: { critical: 2, urgent: 5, total: 14 },
+      resolved: { total: 8, resolution_rate: 61 },
+      new_items: { issues: 4, commitments: 2, items: [] },
+      became_overdue_this_week: [{}, {}],
+      most_overdue: { title: "Drainage repair Ward 42", days_overdue: 12 }
+    },
+    '/api/issues/clusters': [
+      { summary: "Water Logging in Sector 4", ward: "Ward 42", urgency: "critical" },
+      { summary: "Street Light Repair", ward: "Ward 15", urgency: "urgent" }
+    ],
+    '/api/profile': {
+      name: "Rajendra Kumar Verma",
+      designation: "MLA",
+      ward_name: "Lucknow North",
+      term_start: "2022",
+      party: "Jan Kalyan Party",
+      email: "mla.lucknow@gov.in",
+      contact: "+91 9988776655"
+    },
+    '/api/todo': {
+      meeting_items: [
+        { id: 1, title: "Finalize School Budget", type: "commitment", ward: "Ward 42", urgency: "critical", weight: 90, days_overdue: 0, deadline: "2025-06-01" }
+      ],
+      issue_items: [
+        { id: 2, title: "Sewer blockage", type: "issue", ward: "Ward 12", urgency: "urgent", weight: 70, days_overdue: 3, deadline: "2025-05-20" }
+      ]
+    },
+    '/api/history': {
+      items: [
+        { title: "Park Renovation Complete", to_whom: "Residents", ward: "Ward 42", completed_at: "2025-05-15T10:00:00" }
+      ]
+    },
+    '/api/meetings/recent': [
+      { source_id: "meeting_001.txt", meeting_date: "2025-05-10", commitments: 5 }
+    ],
+    '/api/complaints/recent': [
+      { raw_description: "Pothole on Main Road", citizen_name: "Amit Sharma", ward: "Ward 15", status: "pending", date_received: "2025-05-18" }
+    ],
+    '/api/context/files': [
+      { label: "Census 2024", filename: "census.txt", category: "Report", created_at: "2025-01-01" }
+    ],
+    '/api/upload/meeting': { extracted_count: 3, filename: "mock_meeting.txt" },
+    '/api/upload/context': { status: "success" },
+    '/api/item': { status: "success" },
+    '/api/escalate': { status: "success" },
+    '/api/complaint': { status: "success" }
+  };
+
+  let responseData = {};
+
+  if (url === '/api/chat') {
+    responseData = {
+      response: "This is a UI-only demonstration. In the full version, I would use RAG to answer based on your constituency data.",
+      sources: [{ title: "Mock Source", domain: "concept" }],
+      routed: "instant"
+    };
+  } else if (url === '/api/suggestions') {
+    responseData = {
+      suggestions: [
+        { title: "Priority Infrastructure", body: "Focus on Ward 42 drainage systems based on recent complaint clusters.", priority: "critical" }
+      ],
+      thinking_trace: [{ round: 1, type: "thought", content: "Analyzing mock data patterns...", timestamp: new Date().toISOString() }],
+      context_summary: "Mock analysis based on concept data."
+    };
+  } else {
+    const matchedKey = Object.keys(mockData).find(key => url.includes(key));
+    if (matchedKey) responseData = mockData[matchedKey];
+  }
+
+  return {
+    ok: true,
+    json: async () => responseData
+  };
+};
+
 async function fetchData(url, options = {}) {
   try {
     const response = await fetch(url, options);

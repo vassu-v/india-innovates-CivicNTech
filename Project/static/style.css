@@ -1256,3 +1256,65 @@
     margin-top: 6px;
     font-style: italic;
 }
+
+.ui-concept-note {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    height: 44px;
+    width: 44px;
+    background: var(--blue);
+    color: white;
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    text-decoration: none;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+    cursor: pointer;
+    overflow: hidden;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.uic-text {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(20px);
+    transition: all 0.3s ease;
+    margin-right: 0;
+    width: 0;
+    pointer-events: none;
+}
+
+.uic-icon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.ui-concept-note:hover {
+    width: 360px;
+    background: var(--ink);
+    padding-left: 24px;
+}
+
+.ui-concept-note:hover .uic-text {
+    opacity: 1;
+    transform: translateX(0);
+    width: auto;
+    margin-right: 8px;
+}
+
+.ui-concept-note:hover .uic-icon {
+    transform: rotate(360deg);
+}
