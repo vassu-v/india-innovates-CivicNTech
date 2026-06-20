@@ -99,11 +99,10 @@ Since this is a static UI demonstration, you can run it using any simple web ser
 
 ### Example: Using Python's built-in server
 ```bash
-cd Project
 python3 -m http.server 8000
 ```
 
-### 3. Open the dashboard
+### 2. Open the dashboard
 Visit [http://localhost:8000](http://localhost:8000) in your browser.
 
 ---
